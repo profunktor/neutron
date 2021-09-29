@@ -1,9 +1,21 @@
 import Dependencies._
 import Settings._
 
+ThisBuild / scalaVersion := "2.13.5"
+ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / organization := "dev.profunktor"
+ThisBuild / organizationName := "ProfunKtor"
+
+ThisBuild / scalafixDependencies += Libraries.organizeImports
+
+resolvers += Resolver.sonatypeRepo("snapshots")
+
+Compile / run / fork := true
+Global / semanticdbEnabled := true
+
 ThisBuild / scalaVersion := supportedScala
 
-lazy val `neutron-core` = (project in file("core"))
+lazy val `fs2-pulsar-core` = (project in file("core"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
@@ -20,9 +32,9 @@ lazy val `neutron-core` = (project in file("core"))
         )
   )
 
-lazy val `neutron-circe` = (project in file("circe"))
+lazy val `fs2-pulsar-circe` = (project in file("circe"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`neutron-core`)
+  .dependsOn(`fs2-pulsar-core`)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= List(
@@ -32,7 +44,7 @@ lazy val `neutron-circe` = (project in file("circe"))
         )
   )
 
-lazy val `neutron-function` = (project in file("function"))
+lazy val `fs2-pulsar-function` = (project in file("function"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
@@ -66,10 +78,10 @@ lazy val tests = (project in file("tests"))
           Libraries.weaverCats   % "it,test"
         )
   )
-  .dependsOn(`neutron-circe`)
+  .dependsOn(`fs2-pulsar-circe`)
 
 lazy val docs = (project in file("docs"))
-  .dependsOn(`neutron-circe`)
+  .dependsOn(`fs2-pulsar-circe`)
   .enablePlugins(ParadoxSitePlugin)
   .enablePlugins(ParadoxMaterialThemePlugin)
   .enablePlugins(GhpagesPlugin)
@@ -83,24 +95,24 @@ lazy val docs = (project in file("docs"))
     scalacOptions -= "-Xfatal-warnings",
     scmInfo := Some(
           ScmInfo(
-            url("https://github.com/cr-org/neutron"),
-            "scm:git:git@github.com:cr-org/neutron.git"
+            url("https://github.com/profunktor/fs2-pulsar"),
+            "scm:git:git@github.com:profunktor/fs2-pulsar.git"
           )
         ),
     git.remoteRepo := scmInfo.value.get.connection.replace("scm:git:", ""),
     ghpagesNoJekyll := true,
     version := version.value.takeWhile(_ != '+'),
     paradoxProperties ++= Map(
-          "scala-versions" -> (`neutron-core` / crossScalaVersions).value
+          "scala-versions" -> (`fs2-pulsar-core` / crossScalaVersions).value
                 .map(CrossVersion.partialVersion)
                 .flatten
                 .map(_._2)
                 .mkString("2.", "/", ""),
           "org" -> organization.value,
           "scala.binary.version" -> s"2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
-          "neutron-core" -> s"${(`neutron-core` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
-          "neutron-circe" -> s"${(`neutron-circe` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
-          "neutron-function" -> s"${(`neutron-function` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
+          "fs2-pulsar-core" -> s"${(`fs2-pulsar-core` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
+          "fs2-pulsar-circe" -> s"${(`fs2-pulsar-circe` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
+          "fs2-pulsar-function" -> s"${(`fs2-pulsar-function` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
           "version" -> version.value
         ),
     mdocIn := (Paradox / sourceDirectory).value,
@@ -112,17 +124,19 @@ lazy val docs = (project in file("docs"))
         .withColor("red", "orange")
         .withLogoIcon("flash_on")
         .withCopyright("Copyright © Chatroulette")
-        .withRepository(uri("https://github.com/cr-org/neutron"))
+        .withRepository(uri("https://github.com/profunktor/fs2-pulsar"))
     }
   )
 
 lazy val root = (project in file("."))
-  .settings(name := "neutron")
+  .settings(name := "fs2-pulsar")
   .settings(noPublish)
   .aggregate(
-    `neutron-function`,
-    `neutron-circe`,
-    `neutron-core`,
+    `fs2-pulsar-function`,
+    `fs2-pulsar-circe`,
+    `fs2-pulsar-core`,
     docs,
     tests
   )
+
+addCommandAlias("runLinter", ";scalafixAll --rules OrganizeImports")

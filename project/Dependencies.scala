@@ -18,6 +18,8 @@ object Dependencies {
     val contextApplied   = "0.1.4"
     val kindProjector    = "0.13.2"
     val macroParadise    = "2.1.1"
+
+    val organizeImports  = "0.5.0"
   }
 
   object Libraries {
@@ -40,6 +42,9 @@ object Dependencies {
     // Testing
     val weaverCats       = "com.disneystreaming" %% "weaver-cats"       % V.weaver
     val weaverScalaCheck = "com.disneystreaming" %% "weaver-scalacheck" % V.weaver
+
+    // Scalafix rules
+    val organizeImports = "com.github.liancheng" %% "organize-imports" % V.organizeImports
   }
 
   object CompilerPlugins {

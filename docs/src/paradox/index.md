@@ -1,27 +1,27 @@
-# Neutron
+# fs2-pulsar
 
-Neutron is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
+Fs2 Pulsar is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
 
 It is published for Scala $scala-versions$. You can include it in your project by adding the following dependencies.
 
 @@dependency[sbt,Maven,Gradle] {
-  group="$org$" artifact="$neutron-core$" version="$version$"
-  group2="$org$" artifact2="$neutron-circe$" version2="$version$"
-  group3="$org$" artifact3="$neutron-function$" version3="$version$"
+  group="$org$" artifact="$fs2-pulsar-core$" version="$version$"
+  group2="$org$" artifact2="$fs2-pulsar-circe$" version2="$version$"
+  group3="$org$" artifact3="$fs2-pulsar-function$" version3="$version$"
 }
 
 ## Quick start
 
-Here's a quick consumer / producer example using Neutron. Note: both are fully asynchronous.
+Here's a quick consumer / producer example using fs2-pulsar. Note: both are fully asynchronous.
 
 ```scala mdoc:compile-only
 import scala.concurrent.duration._
 
+import dev.profunktor.pulsar._
+import dev.profunktor.pulsar.schema.utf8._
+
 import cats.effect._
 import fs2.Stream
-
-import cr.pulsar._
-import cr.pulsar.schema.utf8._
 
 object Demo extends IOApp.Simple {
 
@@ -37,7 +37,7 @@ object Demo extends IOApp.Simple {
   val subs =
     Subscription.Builder
       .withName("my-sub")
-      .withType(Subscription.Type.Shared)
+      .withType(Subscription.Type.Exclusive)
       .build
 
   val resources: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
@@ -74,18 +74,18 @@ object Demo extends IOApp.Simple {
 
 ### Schema
 
-As of version `0.0.6`, Neutron ships with support for [Pulsar Schema](https://pulsar.apache.org/docs/en/schema-get-started/). The simplest way to get started is to use the given UTF-8 encoding, which makes use of the native `Schema.BYTES`.
+As of version `0.0.6`, fs2-pulsar ships with support for [Pulsar Schema](https://pulsar.apache.org/docs/en/schema-get-started/). The simplest way to get started is to use the given UTF-8 encoding, which makes use of the native `Schema.BYTES`.
 
 ```scala mdoc:compile-only
-import cr.pulsar.schema.Schema
-import cr.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.Schema
+import dev.profunktor.pulsar.schema.utf8._
 
 val schema = Schema[String] // summon instance
 ```
 
 This brings into scope an `Schema[String]` instance, required to initialize consumers and producers. There's also a default instance `Schema[A]`, for any `cats.Inject[A, Array[Byte]]` instance (based on `Schema.BYTES` as well).
 
-At Chatroulette, we use JSON-serialised data for which we derive a `Schema.JSON` based on Circe codecs and Avro schemas. Those interested in doing the same can leverage the Circe integration by adding the `neutron-circe` dependency.
+At work, we use JSON-serialised data for which we derive a `Schema.JSON` based on Circe codecs and Avro schemas. Those interested in doing the same can leverage the Circe integration by adding the `fs2-pulsar-circe` dependency.
 
 ℹ️ When using schemas, prefer to create the producer(s) before the consumer(s) for fail-fast semantics.
 
@@ -93,8 +93,8 @@ We also need instances for Circe's `Decoder` and `Encoder`, and for `JsonSchema`
 Once you have it, you are an import away from having JSON schema support.
 
 ```scala mdoc:compile-only
-import cr.pulsar.schema.Schema
-import cr.pulsar.schema.circe._
+import dev.profunktor.pulsar.schema.Schema
+import dev.profunktor.pulsar.schema.circe._
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
@@ -113,8 +113,8 @@ val schema = Schema[Event] // summon an instance
 The `JsonSchema` can be created directly using `JsonSchema.derive[A]`, which uses [avro4s](https://github.com/sksamuel/avro4s) under the hood. In fact, this is the recommended way but if you want to get something quickly up and running, you could also use auto-derivation.
 
 ```scala mdoc:compile-only
-import cr.pulsar.schema.Schema
-import cr.pulsar.schema.circe.auto._
+import dev.profunktor.pulsar.schema.Schema
+import dev.profunktor.pulsar.schema.circe.auto._
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
@@ -146,7 +146,7 @@ The generated Avro schema will look as follows.
 {
   "type" : "record",
   "name" : "Event",
-  "namespace" : "cr.pulsar.domain",
+  "namespace" : "dev.profunktor.pulsar.domain",
   "fields" : [ {
     "name" : "uuid",
     "type" : {
@@ -177,7 +177,7 @@ See the generated Avro schema below.
 {
   "type" : "record",
   "name" : "Event",
-  "namespace" : "cr.pulsar.domain",
+  "namespace" : "dev.profunktor.pulsar.domain",
   "fields" : [ {
     "name" : "uuid",
     "type" : {
@@ -206,7 +206,7 @@ This is now accepted by Pulsar since any previous `Event` still not consumed fro
 {
   "type" : "record",
   "name" : "Event",
-  "namespace" : "cr.pulsar.domain",
+  "namespace" : "dev.profunktor.pulsar.domain",
   "fields" : [ {
     "name" : "uuid",
     "type" : {
