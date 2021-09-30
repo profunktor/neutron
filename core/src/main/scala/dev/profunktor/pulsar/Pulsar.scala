@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@ import scala.concurrent.duration.{ FiniteDuration, _ }
 
 import dev.profunktor.pulsar.Pulsar.Options.{ ConnectionTimeout, OperationTimeout }
 
-import cats.effect.{ Resource, Sync }
-import io.estatico.newtype.macros.newtype
+import cats.effect.kernel.{ Resource, Sync }
 import org.apache.pulsar.client.api.{ PulsarClient => Underlying }
 
 object Pulsar {
@@ -40,7 +39,7 @@ object Pulsar {
       opts: Options = Options()
   ): Resource[F, T] =
     Resource.fromAutoCloseable(
-      F.delay(
+      Sync[F].delay(
         Underlying.builder
           .serviceUrl(url.value)
           .connectionTimeout(
@@ -75,8 +74,8 @@ object Pulsar {
   }
 
   object Options {
-    @newtype case class OperationTimeout(value: FiniteDuration)
-    @newtype case class ConnectionTimeout(value: FiniteDuration)
+    case class OperationTimeout(value: FiniteDuration)
+    case class ConnectionTimeout(value: FiniteDuration)
 
     private case class OptionsImpl(
         connectionTimeout: ConnectionTimeout,

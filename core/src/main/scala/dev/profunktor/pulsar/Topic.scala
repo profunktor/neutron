@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import scala.util.matching.Regex
 
 import cats.Show
 import cats.syntax.all._
-import io.estatico.newtype.macros.newtype
 
 sealed trait Topic
 
@@ -54,9 +53,9 @@ object Topic {
       case m: Multi  => m.url.value
     }
 
-  @newtype case class Name(value: String)
-  @newtype case class NamePattern(value: Regex)
-  @newtype case class URL(value: String)
+  case class Name(value: String)
+  case class NamePattern(value: Regex)
+  case class URL(value: String)
 
   sealed trait Type
   object Type {

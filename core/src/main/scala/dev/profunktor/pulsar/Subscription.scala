@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package dev.profunktor.pulsar
 
 import scala.annotation.implicitNotFound
 
-import io.estatico.newtype.macros.newtype
 import org.apache.pulsar.client.api.{ SubscriptionMode, SubscriptionType }
 
 sealed abstract class Subscription {
@@ -38,7 +37,7 @@ sealed abstract class Subscription {
   * Find out more at [[https://pulsar.apache.org/docs/en/concepts-messaging/#subscriptions]]
   */
 object Subscription {
-  @newtype case class Name(value: String)
+  case class Name(value: String)
 
   sealed trait Mode {
     def pulsarSubscriptionMode: SubscriptionMode

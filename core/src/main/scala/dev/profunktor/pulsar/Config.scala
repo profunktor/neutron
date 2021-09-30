@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ package dev.profunktor.pulsar
 
 import scala.annotation.implicitNotFound
 
-import io.estatico.newtype.macros._
-
 import Config._
 
 /**
@@ -33,9 +31,9 @@ sealed abstract class Config {
 }
 
 object Config {
-  @newtype case class PulsarTenant(value: String)
-  @newtype case class PulsarNamespace(value: String)
-  @newtype case class PulsarURL(value: String)
+  case class PulsarTenant(value: String)
+  case class PulsarNamespace(value: String)
+  case class PulsarURL(value: String)
 
   /**************** Type-level builder ******************/
   sealed trait Info

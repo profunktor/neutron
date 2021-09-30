@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import scala.reflect.ClassTag
 
 import dev.profunktor.pulsar.JavaConversions._
 
-import io.estatico.newtype.macros.newtype
 import org.apache.pulsar.functions.api.{ WindowContext => JavaWindowContext }
 import org.slf4j.Logger
 
@@ -75,14 +74,14 @@ final case class WindowContext(private val ctx: JavaWindowContext) {
 }
 
 object WindowContext {
-  @newtype final case class Tenant(value: String)
-  @newtype final case class Namespace(value: String)
-  @newtype final case class FunctionName(value: String)
-  @newtype final case class FunctionId(value: String)
-  @newtype final case class InstanceId(value: Int)
-  @newtype final case class NumInstances(value: Int)
-  @newtype final case class FunctionVersion(value: String)
-  @newtype final case class InputTopic(value: String)
-  @newtype final case class OutputTopic(value: String)
-  @newtype final case class OutputSchemaType(value: String)
+  final case class Tenant(value: String)
+  final case class Namespace(value: String)
+  final case class FunctionName(value: String)
+  final case class FunctionId(value: String)
+  final case class InstanceId(value: Int)
+  final case class NumInstances(value: Int)
+  final case class FunctionVersion(value: String)
+  final case class InputTopic(value: String)
+  final case class OutputTopic(value: String)
+  final case class OutputSchemaType(value: String)
 }

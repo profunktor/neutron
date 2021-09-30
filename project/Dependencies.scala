@@ -10,23 +10,17 @@ object Dependencies {
     val catsEffect = "3.2.9"
     val circe      = "0.14.1"
     val fs2        = "3.1.3"
-    val newtype    = "0.4.4"
     val pulsar     = "2.8.0"
     val weaver     = "0.7.6"
 
-    val betterMonadicFor = "0.3.1"
-    val contextApplied   = "0.1.4"
-    val kindProjector    = "0.13.2"
-    val macroParadise    = "2.1.1"
-
-    val organizeImports  = "0.5.0"
+    val kindProjector   = "0.13.2"
+    val organizeImports = "0.5.0"
   }
 
   object Libraries {
     val cats       = "org.typelevel" %% "cats-core"   % V.cats
     val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
     val fs2        = "co.fs2"        %% "fs2-core"    % V.fs2
-    val newtype    = "io.estatico"   %% "newtype"     % V.newtype
 
     val circeCore    = "io.circe" %% "circe-core"    % V.circe
     val circeGeneric = "io.circe" %% "circe-generic" % V.circe
@@ -48,17 +42,8 @@ object Dependencies {
   }
 
   object CompilerPlugins {
-    val betterMonadicFor = compilerPlugin(
-      "com.olegpy" %% "better-monadic-for" % V.betterMonadicFor
-    )
-    val contextApplied = compilerPlugin(
-      "org.augustjune" %% "context-applied" % V.contextApplied
-    )
     val kindProjector = compilerPlugin(
       "org.typelevel" %% "kind-projector" % V.kindProjector cross CrossVersion.full
-    )
-    val macroParadise = compilerPlugin(
-      "org.scalamacros" % "paradise" % V.macroParadise cross CrossVersion.full
     )
   }
 

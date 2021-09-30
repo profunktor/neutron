@@ -1,10 +1,24 @@
 import Dependencies._
-import Settings._
 
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / organizationName := "ProfunKtor"
+ThisBuild / homepage := Some(url("https://pulsar.profunktor.dev"))
+ThisBuild / licenses := List(
+  "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
+)
+ThisBuild / crossScalaVersions := Seq("2.13.5")
+ThisBuild / startYear := Some(2021)
+
+ThisBuild / developers := List(
+  Developer(
+    "gvolpe",
+    "Gabriel Volpe",
+    "volpegabriel@gmail.com",
+    url("https://gvolpe.com")
+  )
+)
 
 ThisBuild / scalafixDependencies += Libraries.organizeImports
 
@@ -13,20 +27,26 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 Compile / run / fork := true
 Global / semanticdbEnabled := true
 
-ThisBuild / scalaVersion := supportedScala
+val commonSettings = Seq(
+  scalacOptions -= "-Wunused:params", // so many false-positives :(
+  scalafmtOnCompile := true,
+  autoAPIMappings := true,
+  testFrameworks += new TestFramework("weaver.framework.CatsEffect")
+)
+
+lazy val noPublish = {
+  publish / skip := true
+}
 
 lazy val `fs2-pulsar-core` = (project in file("core"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= List(
-          CompilerPlugins.betterMonadicFor,
-          CompilerPlugins.contextApplied,
           CompilerPlugins.kindProjector,
           Libraries.cats,
           Libraries.catsEffect,
           Libraries.fs2,
-          Libraries.newtype,
           Libraries.pulsar,
           Libraries.weaverCats % Test
         )
@@ -51,7 +71,6 @@ lazy val `fs2-pulsar-function` = (project in file("function"))
     libraryDependencies ++= List(
           Libraries.pulsarFunctionsApi,
           Libraries.java8Compat,
-          Libraries.newtype,
           Libraries.cats             % Test,
           Libraries.catsEffect       % Test,
           Libraries.cats             % Test,
@@ -68,8 +87,6 @@ lazy val tests = (project in file("tests"))
     noPublish,
     Defaults.itSettings,
     libraryDependencies ++= List(
-          CompilerPlugins.betterMonadicFor,
-          CompilerPlugins.contextApplied,
           CompilerPlugins.kindProjector,
           Libraries.avro4s       % "it,test",
           Libraries.circeCore    % "it,test",
@@ -123,7 +140,7 @@ lazy val docs = (project in file("docs"))
       ParadoxMaterialTheme()
         .withColor("red", "orange")
         .withLogoIcon("flash_on")
-        .withCopyright("Copyright © Chatroulette")
+        .withCopyright("Copyright © ProfunKtor")
         .withRepository(uri("https://github.com/profunktor/fs2-pulsar"))
     }
   )

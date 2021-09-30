@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,18 @@ package dev.profunktor.pulsar.internal
 
 import java.util.concurrent._
 
-import cats.effect._
+import cats.effect.kernel.Async
 
 private[pulsar] trait FutureLift[F[_]] {
   def futureLift[A](fa: => CompletableFuture[A]): F[A]
 }
 
 private[pulsar] object FutureLift {
-  implicit def instance[F[_]: Async]: FutureLift[F] = new FutureLift[F] {
-    override def futureLift[A](fa: => CompletableFuture[A]): F[A] =
-      F.fromCompletableFuture(F.delay(fa))
-  }
+  def apply[F[_]: FutureLift]: FutureLift[F] = implicitly
 
-  def apply[F[_]](implicit fl: FutureLift[F]): FutureLift[F] = fl
+  implicit def forAsync[F[_]: Async]: FutureLift[F] =
+    new FutureLift[F] {
+      def futureLift[A](fa: => CompletableFuture[A]): F[A] =
+        Async[F].fromCompletableFuture(Async[F].delay(fa))
+    }
 }

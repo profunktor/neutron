@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Chatroulette
+ * Copyright 2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,17 +90,17 @@ object Producer {
 
     Resource
       .make {
-        F.delay(
+        Sync[F].delay(
           configureBatching(
             _opts.batching,
-            client.newProducer(E.schema).topic(topic.url.value)
+            client.newProducer(Schema[E].schema).topic(topic.url.value)
           ).create
         )
-      }(p => F.futureLift(p.closeAsync()).void)
+      }(p => FutureLift[F].futureLift(p.closeAsync()).void)
       .map { prod =>
         new Producer[F, E] {
           override def send(msg: E, key: MessageKey): F[MessageId] =
-            _opts.logger(msg)(topic.url) &> F.futureLift {
+            _opts.logger(msg)(topic.url) &> FutureLift[F].futureLift {
                   prod
                     .newMessage()
                     .value(msg)
@@ -148,7 +148,7 @@ object Producer {
       OptionsImpl[F, E](
         Batching.Disabled,
         _ => ShardKey.Default,
-        _ => _ => F.unit
+        _ => _ => Applicative[F].unit
       )
   }
 
