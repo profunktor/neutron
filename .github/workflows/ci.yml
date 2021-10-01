@@ -33,9 +33,10 @@ jobs:
 
       - name: "Run with ${{ matrix.java }} 🚀"
         # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
-        run: nix-shell \
-               --argstr java "${{ matrix.java }}" \
-               --run "SBT_OPTS='--illegal-access=permit' sbt + 'IntegrationTest/test;test;makeSite;doc'"
+        run: |
+          nix-shell \
+            --argstr java "${{ matrix.java }}" \
+            --run "SBT_OPTS='--illegal-access=permit' sbt + 'IntegrationTest/test;test;makeSite;doc'"
 
       - name: "Shutting down Pulsar 🐳"
         run: docker-compose down
