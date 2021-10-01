@@ -106,7 +106,9 @@ lazy val tests = (project in file("tests"))
           Libraries.circeGeneric % "it,test",
           Libraries.circeParser  % "it,test",
           Libraries.weaverCats   % "it,test"
-        ) ++ avro4sDep(scalaVersion.value, "it,test") ++ kindProjectorDep(scalaVersion.value)
+        ) ++ avro4sDep(scalaVersion.value, "it,test") ++ kindProjectorDep(
+              scalaVersion.value
+            )
   )
   .dependsOn(`neutron-circe`)
 

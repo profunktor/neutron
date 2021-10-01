@@ -31,7 +31,7 @@ object Event_V2 {
   implicit val eq: Eq[Event_V2] = Eq.by(_.uuid)
 
   implicit val jsonEncoder: Encoder[Event_V2] = deriveEncoder
-  implicit val jsonDecoder: Decoder[Event_V2] = deriveDecoder[Event_V2]
+  implicit val jsonDecoder: Decoder[Event_V2] = deriveDecoder
 
   implicit val jsonSchema: JsonSchema[Event_V2] = JsonSchema.derive
 }
