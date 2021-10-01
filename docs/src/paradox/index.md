@@ -1,6 +1,6 @@
 # neutron
 
-Fs2 Pulsar is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
+Neutron is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
 
 It is published for Scala $scala-versions$. You can include it in your project by adding the following dependencies.
 
