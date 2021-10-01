@@ -33,6 +33,7 @@ object Schema {
     new Schema[E] {
       def schema: JSchema[E] =
         new JSchema[E] {
+          override def clone(): JSchema[E]             = this
           override def encode(message: E): Array[Byte] = I.inj(message)
           override def decode(bytes: Array[Byte]): E =
             I.prj(bytes)

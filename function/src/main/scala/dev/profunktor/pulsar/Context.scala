@@ -18,10 +18,10 @@ package dev.profunktor.pulsar
 
 import java.nio.ByteBuffer
 
-import scala.compat.java8.OptionConverters._
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters.RichOptional
 import scala.reflect.ClassTag
 
-import dev.profunktor.pulsar.JavaConversions._
 import dev.profunktor.pulsar.WindowContext._
 
 import org.apache.pulsar.client.api.{ Schema, TypedMessageBuilder }
@@ -50,7 +50,7 @@ final case class Context(private val ctx: JavaContext) {
 
   def userConfigMap: Map[String, AnyRef] = ctx.getUserConfigMap.asScala.toMap
   def userConfigValue[T: ClassTag](key: String): Option[T] =
-    ctx.getUserConfigValue(key).asScala.collect { case x: T => x }
+    ctx.getUserConfigValue(key).toScala.collect { case x: T => x }
 
   def userConfigValueOrElse[T: ClassTag](key: String, defaultValue: T): T =
     userConfigValue[T](key).getOrElse(defaultValue)

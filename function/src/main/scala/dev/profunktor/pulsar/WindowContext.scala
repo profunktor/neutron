@@ -18,12 +18,11 @@ package dev.profunktor.pulsar
 
 import java.nio.ByteBuffer
 
-import scala.compat.java8.FutureConverters._
-import scala.compat.java8.OptionConverters._
+import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
+import scala.jdk.OptionConverters.RichOptional
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.reflect.ClassTag
-
-import dev.profunktor.pulsar.JavaConversions._
 
 import org.apache.pulsar.functions.api.{ WindowContext => JavaWindowContext }
 import org.slf4j.Logger
@@ -52,7 +51,7 @@ final case class WindowContext(private val ctx: JavaWindowContext) {
 
   def userConfigMap: Map[String, AnyRef] = ctx.getUserConfigMap.asScala.toMap
   def userConfigValue[T: ClassTag](key: String): Option[T] =
-    ctx.getUserConfigValue(key).asScala.collect { case x: T => x }
+    ctx.getUserConfigValue(key).toScala.collect { case x: T => x }
 
   def userConfigValueOrElse[T: ClassTag](key: String, defaultValue: T): T =
     userConfigValue[T](key).getOrElse(defaultValue)
@@ -65,12 +64,12 @@ final case class WindowContext(private val ctx: JavaWindowContext) {
       obj: T,
       schemaOrSerdeClassName: String
   )(implicit ec: ExecutionContext): Future[Unit] =
-    ctx.publish(topicName.value, obj, schemaOrSerdeClassName).toScala.map(_ => ())
+    ctx.publish(topicName.value, obj, schemaOrSerdeClassName).asScala.map(_ => ())
 
   def publish[T](topicName: OutputTopic, obj: T)(
       implicit ec: ExecutionContext
   ): Future[Unit] =
-    ctx.publish(topicName.value, obj).toScala.map(_ => ())
+    ctx.publish(topicName.value, obj).asScala.map(_ => ())
 }
 
 object WindowContext {

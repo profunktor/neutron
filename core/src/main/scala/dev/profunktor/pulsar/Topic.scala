@@ -61,7 +61,8 @@ object Topic {
   object Type {
     case object Persistent extends Type
     case object NonPersistent extends Type
-    implicit val showType = Show.show[Type] {
+
+    implicit val showType: Show[Type] = Show.show[Type] {
       case Persistent    => "persistent"
       case NonPersistent => "non-persistent"
     }

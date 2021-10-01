@@ -18,7 +18,7 @@ package dev.profunktor.pulsar
 
 import java.util
 
-import dev.profunktor.pulsar.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 import org.apache.pulsar.functions.api.{
   Record => JavaRecord,

@@ -22,10 +22,10 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import scala.collection.mutable
-import scala.compat.java8.FutureConverters._
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Future }
+import scala.jdk.FutureConverters._
 
 import dev.profunktor.pulsar.WindowContext.OutputTopic
 
@@ -332,8 +332,8 @@ object WindowContextSuite extends SimpleIOSuite with Checkers {
 
         val ctx = new WindowContext(javaCtx)
 
-        val res1 = ctx.userConfigValue(key)
-        val res2 = ctx.userConfigValueOrElse(key, defaultValue)
+        val res1: Option[Int] = ctx.userConfigValue(key)
+        val res2: Int         = ctx.userConfigValueOrElse(key, defaultValue)
 
         map.put(key, Integer.valueOf(value))
 
@@ -357,7 +357,7 @@ object WindowContextSuite extends SimpleIOSuite with Checkers {
         var i = 0
 
         def publishMessage: CompletableFuture[Void] =
-          Future({ i = i + 1 }).toJava.toCompletableFuture
+          Future({ i = i + 1 }).asJava.toCompletableFuture
             .thenApply(_ => null) // converting to void
 
         val javaCtx = new JavaWindowContext {

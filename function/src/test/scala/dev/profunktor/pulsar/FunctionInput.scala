@@ -21,7 +21,7 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.{ lang, util }
 
-import dev.profunktor.pulsar.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 import org.apache.pulsar.client.admin.PulsarAdmin
 import org.apache.pulsar.client.api.{ ConsumerBuilder, Schema, TypedMessageBuilder }

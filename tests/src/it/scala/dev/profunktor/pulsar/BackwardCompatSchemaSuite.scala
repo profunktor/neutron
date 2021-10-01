@@ -31,7 +31,7 @@ object BackwardCompatSchemaSuite extends IOSuite {
 
   val cfg = Config.Builder
     .withTenant("public")
-    .withNameSpace("foo")
+    .withNameSpace("neutron")
     .withURL("pulsar://localhost:6650")
     .build
 

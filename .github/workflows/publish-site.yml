@@ -16,20 +16,14 @@ jobs:
       - name: "Install Nix ❄️"
         uses: cachix/install-nix-action@v12
 
-      - name: "Install Cachix ❄️"
-        uses: cachix/cachix-action@v8
-        with:
-          name: neutron
-          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
-
       - name: "Install SSH 🔑 for GH pages"
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSH_KEY }}
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
 
-      - run: git config --global user.email "neutron-site-bot@chatroulette.com"
+      - run: git config --global user.email "neutron-site-bot@profunktor.dev"
       - run: git config --global user.name "neutron-site-bot"
 
       - name: "Build microsite 🚧"
-        run: nix-shell --run "sbt ghpagesPushSite" nix/ci.nix
+        run: nix-shell --run "sbt ghpagesPushSite"

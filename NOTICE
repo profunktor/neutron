@@ -1,4 +1,4 @@
-Fs2 Pulsar has been originally forked from https://github.com/cr-org/neutron and it is also distributed under the Apache 2.0 License. All the original code preserves the same license, as detailed below, with special mention of the original Copyright 2020 Chatroulette.
+Neutron started out as a fork from the original Neutron (https://github.com/cr-org/neutron) and it is also distributed under the Apache 2.0 License. All the original code preserves the same license, as detailed below, with special mention of the original Copyright 2020 Chatroulette.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

@@ -58,7 +58,7 @@ object Producer {
   sealed trait Batching
   object Batching {
     final case class Enabled(maxDelay: FiniteDuration, maxMessages: Int) extends Batching
-    final case object Disabled extends Batching
+    case object Disabled extends Batching
   }
 
   /**

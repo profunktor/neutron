@@ -1,18 +1,18 @@
-# fs2-pulsar
+# neutron
 
 Fs2 Pulsar is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
 
 It is published for Scala $scala-versions$. You can include it in your project by adding the following dependencies.
 
 @@dependency[sbt,Maven,Gradle] {
-  group="$org$" artifact="$fs2-pulsar-core$" version="$version$"
-  group2="$org$" artifact2="$fs2-pulsar-circe$" version2="$version$"
-  group3="$org$" artifact3="$fs2-pulsar-function$" version3="$version$"
+  group="$org$" artifact="$neutron-core$" version="$version$"
+  group2="$org$" artifact2="$neutron-circe$" version2="$version$"
+  group3="$org$" artifact3="$neutron-function$" version3="$version$"
 }
 
 ## Quick start
 
-Here's a quick consumer / producer example using fs2-pulsar. Note: both are fully asynchronous.
+Here's a quick consumer / producer example using neutron. Note: both are fully asynchronous.
 
 ```scala mdoc:compile-only
 import scala.concurrent.duration._
@@ -74,7 +74,7 @@ object Demo extends IOApp.Simple {
 
 ### Schema
 
-As of version `0.0.6`, fs2-pulsar ships with support for [Pulsar Schema](https://pulsar.apache.org/docs/en/schema-get-started/). The simplest way to get started is to use the given UTF-8 encoding, which makes use of the native `Schema.BYTES`.
+As of version `0.0.6`, neutron ships with support for [Pulsar Schema](https://pulsar.apache.org/docs/en/schema-get-started/). The simplest way to get started is to use the given UTF-8 encoding, which makes use of the native `Schema.BYTES`.
 
 ```scala mdoc:compile-only
 import dev.profunktor.pulsar.schema.Schema
@@ -85,7 +85,7 @@ val schema = Schema[String] // summon instance
 
 This brings into scope an `Schema[String]` instance, required to initialize consumers and producers. There's also a default instance `Schema[A]`, for any `cats.Inject[A, Array[Byte]]` instance (based on `Schema.BYTES` as well).
 
-At work, we use JSON-serialised data for which we derive a `Schema.JSON` based on Circe codecs and Avro schemas. Those interested in doing the same can leverage the Circe integration by adding the `fs2-pulsar-circe` dependency.
+At work, we use JSON-serialised data for which we derive a `Schema.JSON` based on Circe codecs and Avro schemas. Those interested in doing the same can leverage the Circe integration by adding the `neutron-circe` dependency.
 
 ℹ️ When using schemas, prefer to create the producer(s) before the consumer(s) for fail-fast semantics.
 

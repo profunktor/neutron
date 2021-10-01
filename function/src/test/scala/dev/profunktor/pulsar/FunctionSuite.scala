@@ -23,7 +23,7 @@ import weaver.scalacheck.Checkers
 
 object FunctionSuite extends SimpleIOSuite with Checkers {
   test("Function can convert numbers to strings") {
-    forall { n: Int =>
+    forall { (n: Int) =>
       val f = new Function[Int, String] {
         override def handle(input: Int, ctx: Context): String =
           input.toString
@@ -35,7 +35,7 @@ object FunctionSuite extends SimpleIOSuite with Checkers {
   }
 
   test("Function can do side effects") {
-    forall { n: Int =>
+    forall { (n: Int) =>
       var i = 0
       val f = new Function[Int, Unit] {
         override def handle(input: Int, ctx: Context): Unit =

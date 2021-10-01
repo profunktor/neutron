@@ -3,9 +3,8 @@ import sbt._
 object Dependencies {
 
   object V {
-    val java8Compat = "1.0.1"
-
-    val avro4s     = "4.0.11"
+    val avro4s_2   = "4.0.11"
+    val avro4s_3   = "5.0.0.M1"
     val cats       = "2.6.1"
     val catsEffect = "3.2.9"
     val circe      = "0.14.1"
@@ -26,9 +25,8 @@ object Dependencies {
     val circeGeneric = "io.circe" %% "circe-generic" % V.circe
     val circeParser  = "io.circe" %% "circe-parser"  % V.circe
 
-    val avro4s = "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s
-
-    val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % V.java8Compat
+    val avro4s        = "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s_2
+    val avro4s_scala3 = "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s_3
 
     val pulsar             = "org.apache.pulsar" % "pulsar-client"        % V.pulsar
     val pulsarFunctionsApi = "org.apache.pulsar" % "pulsar-functions-api" % V.pulsar
