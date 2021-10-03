@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'docs/**'
+    #paths:
+      #- 'docs/**'
     #tags:
       #- v[0-9]+.[0-9]+.[0-9]+
 
