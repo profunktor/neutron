@@ -4,7 +4,6 @@ val scala2 = "2.13.6"
 val scala3 = "3.0.2"
 
 ThisBuild / scalaVersion := scala2
-ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / organizationName := "ProfunKtor"
 ThisBuild / homepage := Some(url("https://neutron.profunktor.dev"))
