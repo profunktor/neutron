@@ -1,6 +1,9 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.13.5"
+val scala2 = "2.13.6"
+val scala3 = "3.0.2"
+
+ThisBuild / scalaVersion := scala2
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / organizationName := "ProfunKtor"
@@ -8,7 +11,7 @@ ThisBuild / homepage := Some(url("https://neutron.profunktor.dev"))
 ThisBuild / licenses := List(
   "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
 )
-ThisBuild / crossScalaVersions := List("2.13.5", "3.0.2")
+ThisBuild / crossScalaVersions := List(scala2, scala3)
 ThisBuild / startYear := Some(2021)
 
 ThisBuild / developers := List(
@@ -46,7 +49,6 @@ def kindProjectorDep(scalaVersion: String): List[ModuleID] =
   }
 
 val commonSettings = Seq(
-  scalacOptions -= "-Wunused:params", // so many false-positives :(
   scalafmtOnCompile := true,
   autoAPIMappings := true,
   testFrameworks += new TestFramework("weaver.framework.CatsEffect")

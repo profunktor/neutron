@@ -77,10 +77,9 @@ object Reader {
         }
       }(c => FutureLift[F].futureLift(c.closeAsync()).void)
 
-  private def mkMessageReader[
-      F[_]: Sync: FutureLift,
-      E: Schema
-  ](c: JReader[E]): MessageReader[F, E] =
+  private def mkMessageReader[F[_]: Sync: FutureLift, E](
+      c: JReader[E]
+  ): MessageReader[F, E] =
     new MessageReader[F, E] {
       private def readMsg: F[Message[E]] =
         FutureLift[F].futureLift(c.readNextAsync()).map { m =>
