@@ -16,6 +16,32 @@
 
 package dev.profunktor.pulsar.schema
 
+/**
+  * The default instance gives you a schema with SchemaType.JSON, if you have
+  * an Encoder, Decoder and JsonSchema in scope.
+  *
+  * {{{
+  * import dev.profunktor.pulsar.schema.circe._
+  * }}}
+  *
+  * A `JsonSchema` is usually derived from an Avro schema (see avro4s). If you would
+  * like to have the `JsonSchema` derived for you (via avro4s auto derivation), you
+  * can use the following import instead.
+  *
+  * {{{
+  * import dev.profunktor.pulsar.schema.circe.auto._
+  * }}}
+  *
+  * If you are not interested in Pulsar Schemas, you may prefer to deal with the
+  * default SchemaType.BYTES, but still communicate via JSON. For this common use
+  * case, you can use the following import instead, which only requires instances
+  * of both Encoder and Decoder in scope.
+  *
+  * {{{
+  * import dev.profunktor.pulsar.schema.circe.bytes._
+  * }}}
+  */
 package object circe extends CirceDerivation {
   object auto extends AutoDerivation with CirceDerivation
+  object bytes extends JsonAsBytes
 }
