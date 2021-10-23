@@ -98,7 +98,7 @@ object Consumer {
       FutureLift[F]
         .futureLift(c.unsubscribeAsync())
         .attempt
-        .unlessA(opts.manualUnsubscribe) >>
+        .whenA(opts.autoUnsubscribe) >>
           FutureLift[F].futureLift(c.closeAsync()).void
 
     Resource
@@ -153,7 +153,7 @@ object Consumer {
   sealed abstract class Options[F[_], E] {
     val initial: SubscriptionInitialPosition
     val logger: E => Topic.URL => F[Unit]
-    val manualUnsubscribe: Boolean
+    val autoUnsubscribe: Boolean
     val readCompacted: Boolean
     val deadLetterPolicy: Option[DeadLetterPolicy]
 
@@ -168,13 +168,15 @@ object Consumer {
     def withLogger(_logger: E => Topic.URL => F[Unit]): Options[F, E]
 
     /**
-      * Sets unsubscribe mode to `Manual`.
-      * If you select this option you will have to call `unsubscribe` manually.
+      * It will automatically `unsubscribe` from a topic whenever the consumer is closed.
       *
-      * Note that the `unsubscribe` operation fails when performed on a shared subscription where
-      * multiple consumers are currently connected.
+      * By default, this is turned off, as unsubscribing from a topic means deleting the subscription.
+      *
+      * This could be undesirable most of the time, specially when using Exclusive or Failover subscription
+      * modes. Note that unsubscribing from a Shared subscription will always fail when multiple consumers
+      * are connected.
       */
-    def withManualUnsubscribe: Options[F, E]
+    def withAutoUnsubscribe: Options[F, E]
 
     /**
       * If enabled, the consumer will read messages from the compacted topic rather than reading the full message backlog
@@ -205,7 +207,7 @@ object Consumer {
     private case class OptionsImpl[F[_]: Applicative, E](
         initial: SubscriptionInitialPosition,
         logger: E => Topic.URL => F[Unit],
-        manualUnsubscribe: Boolean,
+        autoUnsubscribe: Boolean,
         readCompacted: Boolean,
         deadLetterPolicy: Option[DeadLetterPolicy]
     ) extends Options[F, E] {
@@ -217,8 +219,8 @@ object Consumer {
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Options[F, E] =
         copy(logger = _logger)
 
-      override def withManualUnsubscribe: Options[F, E] =
-        copy(manualUnsubscribe = true)
+      override def withAutoUnsubscribe: Options[F, E] =
+        copy(autoUnsubscribe = true)
 
       override def withReadCompacted: Options[F, E] =
         copy(readCompacted = true)
@@ -230,7 +232,7 @@ object Consumer {
     def apply[F[_]: Applicative, E](): Options[F, E] = OptionsImpl[F, E](
       SubscriptionInitialPosition.Latest,
       _ => _ => Applicative[F].unit,
-      manualUnsubscribe = false,
+      autoUnsubscribe = false,
       readCompacted = false,
       deadLetterPolicy = None
     )

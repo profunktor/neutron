@@ -65,12 +65,28 @@ object Pulsar {
     def withConnectionTimeout(timeout: ConnectionTimeout): Options
 
     /**
+      * Set the duration of time to wait for a connection to a broker to be established.
+      * If the duration passes without a response from the broker, the connection attempt is dropped.
+      */
+    def withConnectionTimeout(timeout: FiniteDuration): Options =
+      withConnectionTimeout(ConnectionTimeout(timeout))
+
+    /**
       * Set the operation timeout <i>(default: 30 seconds)</i>.
       *
       * <p>Producer-create, subscribe and unsubscribe operations will be retried until this interval,
       * after which the operation will be marked as failed
       */
     def withOperationTimeout(timeout: OperationTimeout): Options
+
+    /**
+      * Set the operation timeout <i>(default: 30 seconds)</i>.
+      *
+      * <p>Producer-create, subscribe and unsubscribe operations will be retried until this interval,
+      * after which the operation will be marked as failed
+      */
+    def withOperationTimeout(timeout: FiniteDuration): Options =
+      withOperationTimeout(OperationTimeout(timeout))
   }
 
   object Options {
