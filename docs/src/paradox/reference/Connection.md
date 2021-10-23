@@ -1,6 +1,6 @@
 # Connection
 
-A connection to Apache Pulsar is an expensive operation, so it is recommended to create a single instance per application.
+A connection to Apache Pulsar is an expensive operation, reason why it is recommended to create a single instance per application.
 
 The main constructor returns a `cats.effect.Resource`, and is defined as follows.
 
