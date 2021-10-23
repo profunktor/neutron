@@ -138,12 +138,13 @@ lazy val docs = (project in file("docs"))
           "scala-versions" -> (`neutron-core` / crossScalaVersions).value
                 .map(CrossVersion.partialVersion)
                 .flatten
-                .map(_._2)
-                .mkString("2.", "/", ""),
+                .map { case (x, y) => s"$x.$y" }
+                .mkString("/"),
           "org" -> organization.value,
           "scala.binary.version" -> s"2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
           "neutron-core" -> s"${(`neutron-core` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
           "neutron-circe" -> s"${(`neutron-circe` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
+          "neutron-function" -> s"${(`neutron-function` / name).value}_2.${CrossVersion.partialVersion(scalaVersion.value).get._2}",
           "version" -> version.value
         ),
     mdocIn := (Paradox / sourceDirectory).value,
@@ -152,7 +153,7 @@ lazy val docs = (project in file("docs"))
     ParadoxMaterialThemePlugin.paradoxMaterialThemeSettings(Paradox),
     Paradox / paradoxMaterialTheme := {
       ParadoxMaterialTheme()
-        .withColor("red", "orange")
+        .withColor("teal", "indigo")
         .withLogoIcon("flash_on")
         .withCopyright("Copyright © ProfunKtor")
         .withRepository(uri("https://github.com/profunktor/neutron"))
