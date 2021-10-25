@@ -99,4 +99,4 @@ def custom(
   Reader.make(pulsar, topic, opts)
 ```
 
-It is the responsibility of the application to know the specific `MessageId`.
+It is the responsibility of the application to know the specific `MessageId`, which internally represents a Ledger ID, Entry ID, and Partition ID.
