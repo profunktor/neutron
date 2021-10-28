@@ -33,7 +33,7 @@ jobs:
         run: |
           nix-shell \
             --argstr java "${{ matrix.java }}" \
-            --run "SBT_OPTS='--illegal-access=permit' sbt + 'IntegrationTest/test;test;makeSite;doc'"
+            --run "SBT_OPTS='--add-opens java.base/java.lang=ALL-UNNAMED' sbt + 'IntegrationTest/test;test;makeSite;doc'"
 
       - name: "Shutting down Pulsar 🐳"
         run: docker-compose down
