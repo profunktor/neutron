@@ -13,7 +13,8 @@ jobs:
     strategy:
       matrix:
         java:
-          - jdk16
+          - jdk11
+          - jdk17
 
     steps:
       - uses: actions/checkout@v2.3.2

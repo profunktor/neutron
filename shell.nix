@@ -1,4 +1,4 @@
-{ jdk ? "jdk16" }:
+{ jdk ? "jdk17" }:
 
 let
   config = {
@@ -16,9 +16,9 @@ let
   };
 
   nixpkgs = fetchTarball {
-    name   = "nixos-unstable-2021-09-02";
-    url    = "https://github.com/NixOS/nixpkgs/archive/8a2ec31e224.tar.gz";
-    sha256 = "0w8sl1dwmvng2bd03byiaz8j9a9hlvv8n16641m8m5dd06dyqli7";
+    name   = "nixos-unstable-2021-10-27";
+    url    = "https://github.com/NixOS/nixpkgs/archive/a4bf44345706.tar.gz";
+    sha256 = "0zag9yfqsf544vrfccfvn5yjagizqf69adza8fpmsmn5ll8jw8gw";
   };
 
   pkgs = import nixpkgs { inherit config; };
