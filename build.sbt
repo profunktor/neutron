@@ -1,7 +1,7 @@
 import Dependencies._
 
 val scala2 = "2.13.6"
-val scala3 = "3.0.2"
+val scala3 = "3.1.0"
 
 ThisBuild / scalaVersion := scala2
 ThisBuild / organization := "dev.profunktor"
