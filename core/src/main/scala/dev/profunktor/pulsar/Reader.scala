@@ -26,8 +26,12 @@ import cats.Functor
 import cats.effect._
 import cats.syntax.all._
 import fs2._
-import org.apache.pulsar.client.api.{ MessageId, Reader => JReader, Schema }
-import org.apache.pulsar.client.api.ReaderBuilder
+import org.apache.pulsar.client.api.{
+  MessageId,
+  Reader => JReader,
+  ReaderBuilder,
+  Schema
+}
 
 /**
   * A MessageReader can be used to read all the messages currently available in a topic.

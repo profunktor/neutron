@@ -18,7 +18,7 @@ package dev.profunktor.pulsar
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
 
-import dev.profunktor.pulsar.Pulsar.Options.{ ConnectionTimeout, OperationTimeout }
+import dev.profunktor.pulsar.Pulsar.Settings.{ ConnectionTimeout, OperationTimeout }
 
 import cats.effect.kernel.{ Resource, Sync }
 import org.apache.pulsar.client.api.{ PulsarClient => Underlying }
@@ -36,25 +36,25 @@ object Pulsar {
     */
   def make[F[_]: Sync](
       url: PulsarURL,
-      opts: Options = Options()
+      settings: Settings = Settings()
   ): Resource[F, T] =
     Resource.fromAutoCloseable(
       Sync[F].delay(
         Underlying.builder
           .serviceUrl(url.value)
           .connectionTimeout(
-            opts.connectionTimeout.value.length.toInt,
-            opts.connectionTimeout.value.unit
+            settings.connectionTimeout.value.length.toInt,
+            settings.connectionTimeout.value.unit
           )
           .operationTimeout(
-            opts.operationTimeout.value.length.toInt,
-            opts.operationTimeout.value.unit
+            settings.operationTimeout.value.length.toInt,
+            settings.operationTimeout.value.unit
           )
           .build
       )
     )
 
-  sealed abstract class Options {
+  sealed abstract class Settings {
     val connectionTimeout: ConnectionTimeout
     val operationTimeout: OperationTimeout
 
@@ -62,13 +62,13 @@ object Pulsar {
       * Set the duration of time to wait for a connection to a broker to be established.
       * If the duration passes without a response from the broker, the connection attempt is dropped.
       */
-    def withConnectionTimeout(timeout: ConnectionTimeout): Options
+    def withConnectionTimeout(timeout: ConnectionTimeout): Settings
 
     /**
       * Set the duration of time to wait for a connection to a broker to be established.
       * If the duration passes without a response from the broker, the connection attempt is dropped.
       */
-    def withConnectionTimeout(timeout: FiniteDuration): Options =
+    def withConnectionTimeout(timeout: FiniteDuration): Settings =
       withConnectionTimeout(ConnectionTimeout(timeout))
 
     /**
@@ -77,7 +77,7 @@ object Pulsar {
       * <p>Producer-create, subscribe and unsubscribe operations will be retried until this interval,
       * after which the operation will be marked as failed
       */
-    def withOperationTimeout(timeout: OperationTimeout): Options
+    def withOperationTimeout(timeout: OperationTimeout): Settings
 
     /**
       * Set the operation timeout <i>(default: 30 seconds)</i>.
@@ -85,26 +85,26 @@ object Pulsar {
       * <p>Producer-create, subscribe and unsubscribe operations will be retried until this interval,
       * after which the operation will be marked as failed
       */
-    def withOperationTimeout(timeout: FiniteDuration): Options =
+    def withOperationTimeout(timeout: FiniteDuration): Settings =
       withOperationTimeout(OperationTimeout(timeout))
   }
 
-  object Options {
+  object Settings {
     case class OperationTimeout(value: FiniteDuration)
     case class ConnectionTimeout(value: FiniteDuration)
 
-    private case class OptionsImpl(
+    private case class SettingsImpl(
         connectionTimeout: ConnectionTimeout,
         operationTimeout: OperationTimeout
-    ) extends Options {
-      override def withConnectionTimeout(timeout: ConnectionTimeout): Options =
+    ) extends Settings {
+      override def withConnectionTimeout(timeout: ConnectionTimeout): Settings =
         copy(connectionTimeout = timeout)
 
-      override def withOperationTimeout(timeout: OperationTimeout): Options =
+      override def withOperationTimeout(timeout: OperationTimeout): Settings =
         copy(operationTimeout = timeout)
     }
 
-    def apply(): Options = OptionsImpl(
+    def apply(): Settings = SettingsImpl(
       ConnectionTimeout(30.seconds),
       OperationTimeout(30.seconds)
     )

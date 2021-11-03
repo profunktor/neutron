@@ -7,7 +7,7 @@ The main constructor returns a `cats.effect.Resource`, and is defined as follows
 ```scala mdoc
 import cats.effect._
 import dev.profunktor.pulsar.Config.PulsarURL
-import dev.profunktor.pulsar.Pulsar.Options
+import dev.profunktor.pulsar.Pulsar.Settings
 
 import org.apache.pulsar.client.api.{ PulsarClient => Underlying }
 
@@ -15,7 +15,7 @@ type T = Underlying
 
 def make[F[_]: Sync](
     url: PulsarURL,
-    opts: Options = Options()
+    settings: Settings = Settings()
 ): Resource[F, T] = ???
 ```
 
@@ -52,17 +52,17 @@ import dev.profunktor.pulsar._
 Pulsar.make[IO](config.url)
 ```
 
-### Connection Options
+### Connection settings
 
 Via the second constructor argument, we can set a few client options, such as timeouts.
 
 ```scala mdoc
 import scala.concurrent.duration._
 
-val opts =
-  Options()
+val settings =
+  Settings()
     .withConnectionTimeout(45.seconds)
     .withOperationTimeout(30.minutes)
 
-Pulsar.make[IO](config.url, opts)
+Pulsar.make[IO](config.url, settings)
 ```

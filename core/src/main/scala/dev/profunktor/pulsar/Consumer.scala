@@ -24,14 +24,7 @@ import cats._
 import cats.effect._
 import cats.syntax.all._
 import fs2._
-import org.apache.pulsar.client.api.{
-  Consumer => JConsumer,
-  ConsumerBuilder,
-  DeadLetterPolicy,
-  MessageId,
-  Schema,
-  SubscriptionInitialPosition
-}
+import org.apache.pulsar.client.api.{ Consumer => JConsumer, _ }
 
 trait Consumer[F[_], E] {
 

@@ -22,10 +22,10 @@ import scala.reflect.ClassTag
 
 import dev.profunktor.pulsar.Consumer.DecodingFailure
 
+import com.sksamuel.avro4s.SchemaFor
 import io.circe._
 import io.circe.parser.{ decode => jsonDecode }
 import io.circe.syntax._
-import com.sksamuel.avro4s.SchemaFor
 import org.apache.pulsar.client.api.Schema
 import org.apache.pulsar.client.impl.schema.SchemaInfoImpl
 import org.apache.pulsar.common.schema.{ SchemaInfo, SchemaType }

@@ -22,9 +22,9 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import scala.collection.mutable
-import scala.concurrent.{ Await, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
 import scala.jdk.FutureConverters._
 
 import dev.profunktor.pulsar.WindowContext.OutputTopic

@@ -18,10 +18,10 @@ package dev.profunktor.pulsar
 
 import java.nio.ByteBuffer
 
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
 import scala.jdk.OptionConverters.RichOptional
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.reflect.ClassTag
 
 import org.apache.pulsar.functions.api.{ WindowContext => JavaWindowContext }
