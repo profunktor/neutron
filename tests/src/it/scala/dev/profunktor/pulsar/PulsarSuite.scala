@@ -20,13 +20,15 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID
 
 import dev.profunktor.pulsar.domain._
-import dev.profunktor.pulsar.schema.circe._
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
+import dev.profunktor.pulsar.schema.circe.JsonSchema
 import dev.profunktor.pulsar.domain.Outer.Inner
 
 import cats.effect._
 import cats.implicits._
 import fs2.Stream
+import io.circe.parser.{ decode => jsonDecode }
+import io.circe.syntax._
 import org.apache.pulsar.client.api.PulsarClientException.IncompatibleSchemaException
 import weaver.IOSuite
 
@@ -52,14 +54,59 @@ object PulsarSuite extends IOSuite {
   val batch = Producer.Batching.Disabled
   val shard = (_: Event) => ShardKey.Default
 
+  val eSchema = JsonSchema.make[Event]
+
+  val encoder: Event => Array[Byte] =
+    _.asJson.noSpaces.getBytes(UTF_8)
+
+  val decoder: Array[Byte] => IO[Event] =
+    bs => IO.fromEither(jsonDecode[Event](new String(bs, UTF_8)))
+
+  test(
+    "A message is published and consumed successfully using Schema.BYTES via JSON-encoded strings (Circe)"
+  ) { client =>
+    val hpTopic = topic("happy-path-json-no-schema")
+
+    val res: Resource[IO, (Consumer[IO, Event], Producer[IO, Event])] =
+      for {
+        producer <- Producer.make[IO, Event](client, hpTopic, encoder)
+        consumer <- Consumer.make[IO, Event](client, hpTopic, sub("hps-circe"), decoder)
+      } yield consumer -> producer
+
+    Deferred[IO, Event].flatMap { latch =>
+      Stream
+        .resource(res)
+        .flatMap {
+          case (consumer, producer) =>
+            val consume =
+              consumer.subscribe
+                .evalMap(msg => consumer.ack(msg.id) >> latch.complete(msg.payload))
+
+            val testEvent = Event(UUID.randomUUID(), "test")
+
+            val produce =
+              Stream(testEvent)
+                .covary[IO]
+                .evalMap(producer.send)
+                .evalMap(_ => latch.get)
+
+            produce.concurrently(consume).evalMap { e =>
+              IO(expect.same(e, testEvent))
+            }
+        }
+        .compile
+        .lastOrError
+    }
+  }
+
   test("A message is published and consumed successfully using Schema.JSON via Circe") {
     client =>
       val hpTopic = topic("happy-path-json")
 
       val res: Resource[IO, (Consumer[IO, Event], Producer[IO, Event])] =
         for {
-          producer <- Producer.make[IO, Event](client, hpTopic)
-          consumer <- Consumer.make[IO, Event](client, hpTopic, sub("hp-circe"))
+          producer <- Producer.make[IO, Event](client, hpTopic, eSchema)
+          consumer <- Consumer.make[IO, Event](client, hpTopic, sub("hp-circe"), eSchema)
         } yield consumer -> producer
 
       Deferred[IO, Event].flatMap { latch =>
@@ -88,40 +135,46 @@ object PulsarSuite extends IOSuite {
       }
   }
 
-  test("A message is published and consumed successfully using Schema.BYTES via Inject") {
-    client =>
-      val hpTopic = topic("happy-path-bytes")
+  test(
+    "A message is published and consumed successfully using Schema.BYTES via UTF_8 encoded strings"
+  ) { client =>
+    val hpTopic = topic("happy-path-bytes")
 
-      val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
-        for {
-          producer <- Producer.make[IO, String](client, hpTopic)
-          consumer <- Consumer.make[IO, String](client, hpTopic, sub("hp-bytes"))
-        } yield consumer -> producer
+    val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
+      for {
+        producer <- Producer.make[IO, String](client, hpTopic, PulsarSchema.utf8)
+        consumer <- Consumer.make[IO, String](
+                     client,
+                     hpTopic,
+                     sub("hp-bytes"),
+                     PulsarSchema.utf8
+                   )
+      } yield consumer -> producer
 
-      Deferred[IO, String].flatMap { latch =>
-        Stream
-          .resource(res)
-          .flatMap {
-            case (consumer, producer) =>
-              val consume =
-                consumer.subscribe
-                  .evalMap(msg => consumer.ack(msg.id) >> latch.complete(msg.payload))
+    Deferred[IO, String].flatMap { latch =>
+      Stream
+        .resource(res)
+        .flatMap {
+          case (consumer, producer) =>
+            val consume =
+              consumer.subscribe
+                .evalMap(msg => consumer.ack(msg.id) >> latch.complete(msg.payload))
 
-              val testMessage = "Hello Pulsar!"
+            val testMessage = "Hello Pulsar!"
 
-              val produce =
-                Stream(testMessage)
-                  .covary[IO]
-                  .evalMap(producer.send)
-                  .evalMap(_ => latch.get)
+            val produce =
+              Stream(testMessage)
+                .covary[IO]
+                .evalMap(producer.send)
+                .evalMap(_ => latch.get)
 
-              produce.concurrently(consume).evalMap { e =>
-                IO(expect.same(e, testMessage))
-              }
-          }
-          .compile
-          .lastOrError
-      }
+            produce.concurrently(consume).evalMap { e =>
+              IO(expect.same(e, testMessage))
+            }
+        }
+        .compile
+        .lastOrError
+    }
   }
 
   test("Incompatible schema types for consumer and producer") { client =>
@@ -129,8 +182,8 @@ object PulsarSuite extends IOSuite {
 
     val res: Resource[IO, (Consumer[IO, Event], Producer[IO, String])] =
       for {
-        producer <- Producer.make[IO, String](client, dfTopic)
-        consumer <- Consumer.make[IO, Event](client, dfTopic, sub("incompat-err"))
+        producer <- Producer.make[IO, String](client, dfTopic, PulsarSchema.utf8)
+        consumer <- Consumer.make[IO, Event](client, dfTopic, sub("incompat"), eSchema)
       } yield consumer -> producer
 
     res.attempt.use {
@@ -148,17 +201,21 @@ object PulsarSuite extends IOSuite {
             .withType(Subscription.Type.KeyShared)
             .build
 
-      val opts =
-        Producer.Options[IO, Event]().withShardKey(_.shardKey).withBatching(batch)
+      val settings =
+        Producer
+          .Settings[IO, Event]()
+          .withShardKey(_.shardKey)
+          .withBatching(batch)
+          .withSchema(eSchema)
 
       val res: Resource[
         IO,
         (Consumer[IO, Event], Consumer[IO, Event], Producer[IO, Event])
       ] =
         for {
-          p1 <- Producer.make(client, topic("shared"), opts)
-          c1 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s1"))
-          c2 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s2"))
+          p1 <- Producer.make(client, topic("shared"), settings)
+          c1 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s1"), eSchema)
+          c2 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s2"), eSchema)
         } yield (c1, c2, p1)
 
       (Ref.of[IO, List[Event]](List.empty), Ref.of[IO, List[Event]](List.empty)).tupled
@@ -213,25 +270,30 @@ object PulsarSuite extends IOSuite {
         }
   }
 
+  val fruitSchema = JsonSchema.make[Fruit]
+
   test("Support for JSONSchema with ADTs") { client =>
     val vTopic = topic("fruits-adt")
 
     val res: Resource[IO, (Consumer[IO, Fruit], Producer[IO, Fruit])] =
       for {
-        producer <- Producer.make[IO, Fruit](client, vTopic)
-        consumer <- Consumer.make[IO, Fruit](client, vTopic, sub("fruits"))
+        producer <- Producer.make[IO, Fruit](client, vTopic, fruitSchema)
+        consumer <- Consumer.make[IO, Fruit](client, vTopic, sub("fruits"), fruitSchema)
       } yield consumer -> producer
 
     res.use(_ => IO.pure(success))
   }
+
+  val innerSchema = JsonSchema.make[Inner]
 
   test("Support for JSONSchema with class defined within an object") { client =>
     val vTopic = topic("not-today")
 
     val res: Resource[IO, (Consumer[IO, Inner], Producer[IO, Inner])] =
       for {
-        producer <- Producer.make[IO, Inner](client, vTopic)
-        consumer <- Consumer.make[IO, Inner](client, vTopic, sub("outer-inner"))
+        producer <- Producer.make[IO, Inner](client, vTopic, innerSchema)
+        consumer <- Consumer
+                     .make[IO, Inner](client, vTopic, sub("outer-inner"), innerSchema)
       } yield consumer -> producer
 
     res.use(_ => IO.pure(success))

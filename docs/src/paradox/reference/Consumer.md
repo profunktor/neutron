@@ -43,14 +43,66 @@ There are four types of subscriptions: `Exclusive`, `Shared`, `KeyShared`, and `
 
 ## Creating a Consumer
 
-There is a smart constructor we can use to create a consumer, defined as follows.
+There are a few smart constructors we can use to create a consumer. If we want Pulsar schema support, we have the following one:
+
+```scala
+import org.apache.pulsar.client.api.Schema
+
+def make[F[_]: FutureLift: Sync, E](
+    client: Pulsar.T,
+    topic: Topic,
+    sub: Subscription,
+    schema: Schema[E]
+): Resource[F, Consumer[F, E]] = ???
+```
+
+If we do not want Pulsar schema support, then we need to provide a message decoder, and ideally a decoding error handler, which are both functions.
+
+```scala
+def make[F[_]: FutureLift: Sync, E](
+    client: Pulsar.T,
+    topic: Topic,
+    sub: Subscription,
+    messageDecoder: Array[Byte] => F[E],
+    decodingErrorHandler: Throwable => F[OnFailure] // defaults to Raise
+): Resource[F, Consumer[F, E]] = ???
+```
+
+For example, an UTF-8 encoded string could be the following one:
+
+```scala
+import java.nio.charset.StandardCharsets.UTF_8
+
+val utf8Decoder: Array[Byte] => IO[String] =
+  bs => IO(new String(bs, UTF_8))
+```
+
+Or we could use a JSON decoder powered by Circe:
+
+```scala
+import io.circe.Decoder
+
+def jsonDecoder[A: Decoder]: Array[Byte] => IO[A] =
+  bs => IO.fromEither(io.circe.parser.decode[A](new String(bs, UTF_8)))
+```
+
+If we do not specify the decoding error handler, then the default is to re-raise the error when a message cannot be decoded. That's usually a sane default, but every case is different and you might want to `ack` or `nack` the message, which can be done as follows:
+
+```scala
+val handler: Throwable => IO[Consumer.OnFailure] =
+  e => IO.println(s"[error] - ${e.getMessage}").as(Consumer.OnFailure.Nack)
+```
+
+Finally, there's a generic `make` which takes an `Settings[F, E]` where we can set many other consumer settings, including schema or decoding handler.
+
+BEWARE if you set the pulsar schema, then a decoding error handler won't take effect. Also, if you do not set neither the schema or the message decoder, then you'll get a runtime error when creating the consumer.
 
 ```scala
 def make[F[_]: Sync: FutureLift, E: Schema](
     client: Pulsar.T,
     topic: Topic,
     sub: Subscription,
-    opts: Options[F, E] = null // default value does not work with generics
+    settings: Settings[F, E]
 ): Resource[F, Consumer[F, E]] = ???
 ```
 
@@ -59,15 +111,17 @@ Once we have a subscription, we can create a consumer, assuming we also have a p
 If you missed that part, check out the @ref:[connection](../reference/Connection.md) and @ref:[topic](../reference/Topic.md) docs.
 
 ```scala mdoc
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
 
 import cats.effect._
+
+val schema = PulsarSchema.utf8
 
 def creation(
     pulsar: Pulsar.T,
     topic: Topic
 ): Resource[IO, Consumer[IO, String]] =
-  Consumer.make[IO, String](pulsar, topic, subs)
+  Consumer.make[IO, String](pulsar, topic, subs, schema)
 ```
 
 ## Auto-subscription
@@ -131,11 +185,13 @@ def finish(
 
 This functionality can be enabled to be performed automatically via the `autoUnsubscribe` option.
 
-## Consumer options
+## Consumer settings
 
 When creating a consumer, we can choose to customize the default options. E.g.
 
 ```scala mdoc
+import java.nio.charset.StandardCharsets.UTF_8
+
 import org.apache.pulsar.client.api.{
   DeadLetterPolicy,
   SubscriptionInitialPosition
@@ -149,17 +205,25 @@ val deadLetterPolicy =
     .retryLetterTopic("bar")
     .build()
 
-val opts =
-  Consumer.Options[IO, String]()
+val utf8Decoder: Array[Byte] => IO[String] =
+  bs => IO(new String(bs, UTF_8))
+
+val handler: Throwable => IO[Consumer.OnFailure] =
+  e => IO.println(s"[error] - ${e.getMessage}").as(Consumer.OnFailure.Nack)
+
+val settings =
+  Consumer.Settings[IO, String]()
    .withInitialPosition(SubscriptionInitialPosition.Earliest)
    .withLogger(e => url => IO.println(s"Message: $e, URL: $url"))
    .withAutoUnsubscribe
    .withReadCompacted
    .withDeadLetterPolicy(deadLetterPolicy)
+   .withMessageDecoder(utf8Decoder)
+   .withDecodingErrorHandler(handler)
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic
 ): Resource[IO, Consumer[IO, String]] =
-  Consumer.make[IO, String](pulsar, topic, subs, opts)
+  Consumer.make[IO, String](pulsar, topic, subs, settings)
 ```

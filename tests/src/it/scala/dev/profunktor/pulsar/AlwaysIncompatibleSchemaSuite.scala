@@ -17,7 +17,7 @@
 package dev.profunktor.pulsar
 
 import dev.profunktor.pulsar.domain._
-import dev.profunktor.pulsar.schema.circe._
+import dev.profunktor.pulsar.schema.circe.JsonSchema
 
 import cats.effect._
 import org.apache.pulsar.client.api.PulsarClientException.IncompatibleSchemaException
@@ -48,13 +48,16 @@ object AlwaysIncompatibleSchemaSuite extends IOSuite {
   val batch = Producer.Batching.Disabled
   val shard = (_: Event) => ShardKey.Default
 
+  val schema_v2 = JsonSchema.make[Event_V2]
+  val schema    = JsonSchema.make[Event]
+
   test(
     "ALWAYS_INCOMPATIBLE schemas: producer sends new Event_V2, Consumer expects old Event"
   ) { client =>
     val res: Resource[IO, (Consumer[IO, Event], Producer[IO, Event_V2])] =
       for {
-        producer <- Producer.make[IO, Event_V2](client, topic)
-        consumer <- Consumer.make[IO, Event](client, topic, sub("circe"))
+        producer <- Producer.make[IO, Event_V2](client, topic, schema_v2)
+        consumer <- Consumer.make[IO, Event](client, topic, sub("circe"), schema)
       } yield consumer -> producer
 
     ignore("FIXME: Not working on Scala 3") >>
