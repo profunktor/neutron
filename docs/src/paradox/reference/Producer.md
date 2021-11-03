@@ -20,7 +20,7 @@ We will expand on its methods in the next few sections.
 
 ## Creating a Producer
 
-It defines a few constructs, similarly as `Consumer` does. If we need Pulsar schema support:
+It defines a few constructs, similarly as `Consumer` does. If we need Pulsar schema support, this is the constructor (also another one that takes in an extra argument for the producer settings):
 
 ```scala
 def make[F[_]: FutureLift: Parallel: Sync, E](
@@ -40,15 +40,7 @@ def make[F[_]: FutureLift: Parallel: Sync, E](
 ): Resource[F, Producer[F, E]] = ???
 ```
 
-Otherwise, we have the generic constructor that takes in a Producer.Settings argument.
-
-```scala
-def make[F[_]: Sync, E](
-    client: Pulsar.T,
-    topic: Topic.Single,
-    settings: Settings[F, E] = null // default value does not work with generics
-): Resource[F, Producer[F, E]] = ???
-```
+Check out all the available smart constructors either in the API or in the source code.
 
 Once we have a connection and a topic, we can proceed with the creation of producer. If you missed that part, check out the @ref:[connection](../reference/Connection.md) and @ref:[topic](../reference/Topic.md) docs.
 
@@ -116,18 +108,20 @@ import scala.concurrent.duration._
 val batching =
   Producer.Batching.Enabled(maxDelay = 5.seconds, maxMessages = 500)
 
+val encoder: String => Array[Byte] =
+ _.getBytes(UTF_8)
+
 val settings =
   Producer.Settings[IO, String]()
    .withBatching(batching)
    .withShardKey(s => ShardKey.Of(s.hashCode.toString.getBytes))
    .withLogger(e => url => IO.println(s"Message: $e, URL: $url"))
-   .withMessageEncoder(_.getBytes(UTF_8))
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Producer[IO, String]] =
-  Producer.make(pulsar, topic, settings)
+  Producer.make(pulsar, topic, encoder, settings)
 ```
 
 The `withShardKey` option is quite useful when we want to publish messages based on certain property of your messages, e.g. an `EventId`. This applies when you use it together with `KeyShared` subscriptions, on the consumer side.

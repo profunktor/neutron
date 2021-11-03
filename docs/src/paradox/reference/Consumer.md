@@ -43,7 +43,7 @@ There are four types of subscriptions: `Exclusive`, `Shared`, `KeyShared`, and `
 
 ## Creating a Consumer
 
-There are a few smart constructors we can use to create a consumer. If we want Pulsar schema support, we have the following one:
+There are a few smart constructors we can use to create a consumer. If we want Pulsar schema support, we have the following one (also another one that takes an extra argument for the consumer settings).
 
 ```scala
 import org.apache.pulsar.client.api.Schema
@@ -93,18 +93,7 @@ val handler: Throwable => IO[Consumer.OnFailure] =
   e => IO.println(s"[error] - ${e.getMessage}").as(Consumer.OnFailure.Nack)
 ```
 
-Finally, there's a generic `make` which takes an `Settings[F, E]` where we can set many other consumer settings, including schema or decoding handler.
-
-BEWARE if you set the pulsar schema, then a decoding error handler won't take effect. Also, if you do not set neither the schema or the message decoder, then you'll get a runtime error when creating the consumer.
-
-```scala
-def make[F[_]: Sync: FutureLift, E](
-    client: Pulsar.T,
-    topic: Topic,
-    sub: Subscription,
-    settings: Settings[F, E]
-): Resource[F, Consumer[F, E]] = ???
-```
+There are many smart constructors to ensure you create a consumer with a valid state. Check out all of them in the API or source code.
 
 Once we have a subscription, we can create a consumer, assuming we also have a pulsar connection and a topic.
 
@@ -218,12 +207,17 @@ val settings =
    .withAutoUnsubscribe
    .withReadCompacted
    .withDeadLetterPolicy(deadLetterPolicy)
-   .withMessageDecoder(utf8Decoder)
-   .withDecodingErrorHandler(handler)
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic
 ): Resource[IO, Consumer[IO, String]] =
-  Consumer.make[IO, String](pulsar, topic, subs, settings)
+  Consumer.make[IO, String](
+    pulsar,
+    topic,
+    subs,
+    utf8Decoder,
+    handler,
+    settings
+  )
 ```

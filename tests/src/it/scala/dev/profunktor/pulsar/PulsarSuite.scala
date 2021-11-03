@@ -206,14 +206,13 @@ object PulsarSuite extends IOSuite {
           .Settings[IO, Event]()
           .withShardKey(_.shardKey)
           .withBatching(batch)
-          .withSchema(eSchema)
 
       val res: Resource[
         IO,
         (Consumer[IO, Event], Consumer[IO, Event], Producer[IO, Event])
       ] =
         for {
-          p1 <- Producer.make(client, topic("shared"), settings)
+          p1 <- Producer.make(client, topic("shared"), eSchema, settings)
           c1 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s1"), eSchema)
           c2 <- Consumer.make[IO, Event](client, topic("shared"), makeSub("s2"), eSchema)
         } yield (c1, c2, p1)

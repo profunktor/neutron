@@ -222,6 +222,50 @@ object Consumer {
   }
 
   /**
+    * It creates a [[Consumer]] with the supplied message decoder (schema support disabled) and settings.
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      messageDecoder: Array[Byte] => F[E],
+      settings: Settings[F, E]
+  ): Resource[F, Consumer[F, E]] = {
+    val _settings = settings
+      .withMessageDecoder(messageDecoder)
+      .withDecodingErrorHandler(_ => OnFailure.Raise.pure[F].widen)
+    make(client, topic, sub, _settings)
+  }
+
+  /**
+    * It creates a [[Consumer]] with the supplied message decoder (schema support disabled),
+    * decoding error handler and settings.
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      messageDecoder: Array[Byte] => F[E],
+      decodingErrorHandler: Throwable => F[OnFailure],
+      settings: Settings[F, E]
+  ): Resource[F, Consumer[F, E]] = {
+    val _settings = settings
+      .withMessageDecoder(messageDecoder)
+      .withDecodingErrorHandler(decodingErrorHandler)
+    make(client, topic, sub, _settings)
+  }
+
+  /**
     * It creates a [[Consumer]] with the supplied pulsar schema.
     *
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
@@ -238,7 +282,7 @@ object Consumer {
     mkConsumer(client, sub, topic, Settings[F, E]().withSchema(schema))
 
   /**
-    * It creates a [[Consumer]] with the supplied options, or a default value otherwise.
+    * It creates a [[Consumer]] with the supplied pulsar schema and settings.
     *
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
@@ -246,6 +290,25 @@ object Consumer {
     * you can use [[Consumer#subscribe]] for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      schema: Schema[E],
+      settings: Settings[F, E]
+  ): Resource[F, Consumer[F, E]] = {
+    val _settings = settings.withSchema(schema)
+    mkConsumer(client, sub, topic, _settings)
+  }
+
+  /**
+    * It creates a [[Consumer]] with the supplied options, or a default value otherwise.
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  private def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic,
       sub: Subscription,
@@ -306,12 +369,14 @@ object Consumer {
       */
     def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E]
 
+    // protected to ensure users don't set it and instead use the proper smart constructors
+
     /**
       * Set the message decoder.
       *
       * Only in use when the Pulsar schema is not set.
       */
-    def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
+    protected[pulsar] def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
 
     /**
       * Error handler for messages decoding errors.
@@ -320,7 +385,9 @@ object Consumer {
       *
       * By default it re-raises the error in F.
       */
-    def withDecodingErrorHandler(f: Throwable => F[OnFailure]): Settings[F, E]
+    protected[pulsar] def withDecodingErrorHandler(
+        f: Throwable => F[OnFailure]
+    ): Settings[F, E]
 
     /**
       * Set Pulsar schema (None by default).
@@ -330,7 +397,7 @@ object Consumer {
       *
       * Notice that the decodingErrorHandler won't take effect if this is set.
       */
-    def withSchema(schema: Schema[E]): Settings[F, E]
+    protected[pulsar] def withSchema(schema: Schema[E]): Settings[F, E]
   }
 
   /**
@@ -364,15 +431,18 @@ object Consumer {
       override def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E] =
         copy(deadLetterPolicy = Some(policy))
 
-      override def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E] =
+      // protected to ensure users don't set it and instead use the proper smart constructors
+      override protected[pulsar] def withMessageDecoder(
+          f: Array[Byte] => F[E]
+      ): Settings[F, E] =
         copy(messageDecoder = Some(f))
 
-      override def withDecodingErrorHandler(
+      override protected[pulsar] def withDecodingErrorHandler(
           f: Throwable => F[OnFailure]
       ): Settings[F, E] =
         copy(decodingErrorHandler = f)
 
-      override def withSchema(schema: Schema[E]): Settings[F, E] =
+      override protected[pulsar] def withSchema(schema: Schema[E]): Settings[F, E] =
         copy(schema = Some(schema))
     }
 

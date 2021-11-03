@@ -184,6 +184,19 @@ object Reader {
     make[F, E](client, topic, Settings[F, E]().withSchema(schema))
 
   /**
+    * It creates a [[Reader]] with the supplied Pulsar schema and settings.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      schema: Schema[E],
+      settings: Settings[F, E]
+  ): Resource[F, Reader[F, E]] = {
+    val _settings = settings.withSchema(schema)
+    make[F, E](client, topic, _settings)
+  }
+
+  /**
     * It creates a [[Reader]] with the supplied message decoder.
     */
   def make[F[_]: FutureLift: Sync, E](
@@ -194,9 +207,22 @@ object Reader {
     make[F, E](client, topic, Settings[F, E]().withMessageDecoder(messageDecoder))
 
   /**
-    * It creates a [[Reader]] with the supplied [[Settings]].
+    * It creates a [[Reader]] with the supplied message decoder and settings.
     */
   def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      messageDecoder: Array[Byte] => F[E],
+      settings: Settings[F, E]
+  ): Resource[F, Reader[F, E]] = {
+    val _settings = settings.withMessageDecoder(messageDecoder)
+    make[F, E](client, topic, _settings)
+  }
+
+  /**
+    * It creates a [[Reader]] with the supplied [[Settings]].
+    */
+  private def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       settings: Settings[F, E]
@@ -215,6 +241,19 @@ object Reader {
     messageReader[F, E](client, topic, Settings[F, E]().withSchema(schema))
 
   /**
+    * It creates a [[MessageReader]] with the supplied Pulsar schema and settings.
+    */
+  def messageReader[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      schema: Schema[E],
+      settings: Settings[F, E]
+  ): Resource[F, MessageReader[F, E]] = {
+    val _settings = settings.withSchema(schema)
+    messageReader[F, E](client, topic, _settings)
+  }
+
+  /**
     * It creates a [[MessageReader]] with the supplied message decoder.
     */
   def messageReader[F[_]: FutureLift: Sync, E](
@@ -229,9 +268,22 @@ object Reader {
     )
 
   /**
-    * It creates a [[MessageReader]] with the supplied [[Settings]].
+    * It creates a [[MessageReader]] with the supplied message decoder and settings.
     */
   def messageReader[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      messageDecoder: Array[Byte] => F[E],
+      settings: Settings[F, E]
+  ): Resource[F, MessageReader[F, E]] = {
+    val _settings = settings.withMessageDecoder(messageDecoder)
+    messageReader[F, E](client, topic, _settings)
+  }
+
+  /**
+    * It creates a [[MessageReader]] with the supplied [[Settings]].
+    */
+  private def messageReader[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       settings: Settings[F, E]
@@ -268,12 +320,12 @@ object Reader {
       *
       * Only in use when the Pulsar schema is not set.
       */
-    def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
+    protected[pulsar] def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
 
     /**
       * Set the Pulsar schema.
       */
-    def withSchema(_schema: Schema[E]): Settings[F, E]
+    protected[pulsar] def withSchema(_schema: Schema[E]): Settings[F, E]
   }
 
   /**
@@ -292,10 +344,13 @@ object Reader {
       override def withReadCompacted: Settings[F, E] =
         copy(readCompacted = true)
 
-      override def withSchema(_schema: Schema[E]): Settings[F, E] =
+      // protected to ensure users don't set it and instead use the proper smart constructors
+      protected[pulsar] override def withSchema(_schema: Schema[E]): Settings[F, E] =
         copy(schema = Some(_schema))
 
-      override def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E] =
+      protected[pulsar] override def withMessageDecoder(
+          f: Array[Byte] => F[E]
+      ): Settings[F, E] =
         copy(messageDecoder = Some(f))
     }
 

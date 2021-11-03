@@ -71,6 +71,20 @@ object Producer {
     make[F, E](client, topic, Settings[F, E]().withMessageEncoder(messageEncoder))
 
   /**
+    * It creates a simple [[Producer]] with the supplied message encoder (schema support disabled)
+    * and settings.
+    */
+  def make[F[_]: FutureLift: Parallel: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      messageEncoder: E => Array[Byte],
+      settings: Settings[F, E]
+  ): Resource[F, Producer[F, E]] = {
+    val _settings = Option(settings).getOrElse(Settings[F, E]())
+    make[F, E](client, topic, _settings.withMessageEncoder(messageEncoder))
+  }
+
+  /**
     * It creates a simple [[Producer]] with the supplied Pulsar schema.
     */
   def make[F[_]: FutureLift: Parallel: Sync, E](
@@ -81,9 +95,22 @@ object Producer {
     make[F, E](client, topic, Settings[F, E]().withSchema(schema))
 
   /**
-    * It creates a simple [[Producer]] with the supplied options.
+    * It creates a simple [[Producer]] with the supplied Pulsar schema and settings
     */
   def make[F[_]: FutureLift: Parallel: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      schema: Schema[E],
+      settings: Settings[F, E]
+  ): Resource[F, Producer[F, E]] = {
+    val _settings = Option(settings).getOrElse(Settings[F, E]())
+    make[F, E](client, topic, _settings.withSchema(schema))
+  }
+
+  /**
+    * It creates a simple [[Producer]] with the supplied settings.
+    */
+  private def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       settings: Settings[F, E]
@@ -171,8 +198,10 @@ object Producer {
     def withBatching(_batching: Batching): Settings[F, E]
     def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
     def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
-    def withMessageEncoder(f: E => Array[Byte]): Settings[F, E]
-    def withSchema(_schema: Schema[E]): Settings[F, E]
+
+    // protected to ensure users don't set it and instead use the proper smart constructors
+    protected[pulsar] def withMessageEncoder(f: E => Array[Byte]): Settings[F, E]
+    protected[pulsar] def withSchema(_schema: Schema[E]): Settings[F, E]
   }
 
   /**
@@ -192,9 +221,11 @@ object Producer {
         copy(shardKey = _shardKey)
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
         copy(logger = _logger)
-      override def withMessageEncoder(f: E => Array[Byte]): Settings[F, E] =
+      override protected[pulsar] def withMessageEncoder(
+          f: E => Array[Byte]
+      ): Settings[F, E] =
         copy(messageEncoder = Some(f))
-      override def withSchema(_schema: Schema[E]): Settings[F, E] =
+      override protected[pulsar] def withSchema(_schema: Schema[E]): Settings[F, E] =
         copy(schema = Some(_schema))
     }
     def apply[F[_]: Applicative, E](): Settings[F, E] =

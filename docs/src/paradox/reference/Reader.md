@@ -28,22 +28,24 @@ There's also a `MessageReader` algebra, useful whenever you need more than the p
 
 ## Creating a Reader
 
-It provides a few constructors as both `Consumer` and `Producer` do for schema and message decoders, in addition to the following generic one.
+It provides a few constructors as both `Consumer` and `Producer` do for schema and message decoders. E.g.
 
 ```scala mdoc:compile-only
 import dev.profunktor.pulsar._
 import dev.profunktor.pulsar.Reader.Settings
+import org.apache.pulsar.client.api.Schema
 
 import cats.effect._
 
 def make[F[_]: Sync, E](
     client: Pulsar.T,
     topic: Topic.Single,
+    schema: Schema[E],
     settings: Settings[F, E]
 ): Resource[F, Reader[F, E]] = ???
 ```
 
-If you're interested in a `MessageReader` instead, you can use `messageReader` instead of `make`.
+If you're interested in a `MessageReader` instead, you can use `messageReader` instead of `make`. Check out all the available smart constructors either in the API or source code.
 
 Once we have a Pulsar client and a topic, we can proceed with the creation of a reader. If you missed that part, check out the @ref:[connection](../reference/Connection.md) and @ref:[topic](../reference/Topic.md) docs.
 
@@ -92,13 +94,12 @@ val settings =
   Reader.Settings[IO, String]()
    .withStartMessageId(msgId)
    .withReadCompacted
-   .withSchema(schema)
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Reader[IO, String]] =
-  Reader.make(pulsar, topic, settings)
+  Reader.make(pulsar, topic, schema, settings)
 ```
 
 It is the responsibility of the application to know the specific `MessageId`, which internally represents a Ledger ID, Entry ID, and Partition ID.
