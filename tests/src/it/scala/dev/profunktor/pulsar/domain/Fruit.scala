@@ -16,8 +16,6 @@
 
 package dev.profunktor.pulsar.domain
 
-import dev.profunktor.pulsar.schema.circe.JsonSchema
-
 import cats.Eq
 import io.circe._
 import io.circe.generic.semiauto._
@@ -33,6 +31,4 @@ object Fruit {
 
   implicit val jsonEncoder: Encoder[Fruit] = deriveEncoder
   implicit val jsonDecoder: Decoder[Fruit] = deriveDecoder
-
-  implicit val jsonSchema: JsonSchema[Fruit] = JsonSchema.derive
 }

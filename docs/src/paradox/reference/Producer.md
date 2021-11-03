@@ -20,18 +20,33 @@ We will expand on its methods in the next few sections.
 
 ## Creating a Producer
 
-It defines a single constructor, defined as follows.
+It defines a few constructs, similarly as `Consumer` does. If we need Pulsar schema support:
 
-```scala mdoc:compile-only
-import cats.effect._
-import dev.profunktor.pulsar._
-import dev.profunktor.pulsar.schema.Schema
-import dev.profunktor.pulsar.Producer.Options
+```scala
+def make[F[_]: FutureLift: Parallel: Sync, E](
+    client: Pulsar.T,
+    topic: Topic.Single,
+    schema: Schema[E]
+): Resource[F, Producer[F, E]] = ???
+```
 
+If we do not need Pulsar schema support, we need to provide a message encoder.
+
+```scala
+def make[F[_]: FutureLift: Parallel: Sync, E](
+    client: Pulsar.T,
+    topic: Topic.Single,
+    messageEncoder: E => Array[Byte]
+): Resource[F, Producer[F, E]] = ???
+```
+
+Otherwise, we have the generic constructor that takes in a Producer.Settings argument.
+
+```scala
 def make[F[_]: Sync, E: Schema](
     client: Pulsar.T,
     topic: Topic.Single,
-    opts: Options[F, E] = null // default value does not work with generics
+    settings: Settings[F, E] = null // default value does not work with generics
 ): Resource[F, Producer[F, E]] = ???
 ```
 
@@ -39,15 +54,17 @@ Once we have a connection and a topic, we can proceed with the creation of produ
 
 ```scala mdoc
 import dev.profunktor.pulsar._
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
 
 import cats.effect._
+
+val schema = PulsarSchema.utf8
 
 def creation(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Producer[IO, String]] =
-  Producer.make[IO, String](pulsar, topic)
+  Producer.make[IO, String](pulsar, topic, schema)
 ```
 
 ## Publishing a message
@@ -87,27 +104,30 @@ def shard(
 
 However, if you always want to publish messages according to a specific key, prefer to use the `withShardKey` option, described in the next section.
 
-## Producer Options
+## Producer settings
 
 The producer constructor can also be customized with a few extra options. E.g.
 
 ```scala mdoc
+import java.nio.charset.StandardCharsets.UTF_8
+
 import scala.concurrent.duration._
 
 val batching =
   Producer.Batching.Enabled(maxDelay = 5.seconds, maxMessages = 500)
 
-val opts =
-  Producer.Options[IO, String]()
+val settings =
+  Producer.Settings[IO, String]()
    .withBatching(batching)
    .withShardKey(s => ShardKey.Of(s.hashCode.toString.getBytes))
    .withLogger(e => url => IO.println(s"Message: $e, URL: $url"))
+   .withMessageEncoder(_.getBytes(UTF_8))
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Producer[IO, String]] =
-  Producer.make(pulsar, topic, opts)
+  Producer.make(pulsar, topic, settings)
 ```
 
 The `withShardKey` option is quite useful when we want to publish messages based on certain property of your messages, e.g. an `EventId`. This applies when you use it together with `KeyShared` subscriptions, on the consumer side.

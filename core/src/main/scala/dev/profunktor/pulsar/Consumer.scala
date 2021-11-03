@@ -19,7 +19,6 @@ package dev.profunktor.pulsar
 import scala.util.control.NoStackTrace
 
 import dev.profunktor.pulsar.internal.FutureLift
-import dev.profunktor.pulsar.schema.Schema
 
 import cats._
 import cats.effect._
@@ -27,8 +26,10 @@ import cats.syntax.all._
 import fs2._
 import org.apache.pulsar.client.api.{
   Consumer => JConsumer,
+  ConsumerBuilder,
   DeadLetterPolicy,
   MessageId,
+  Schema,
   SubscriptionInitialPosition
 }
 
@@ -71,65 +72,177 @@ object Consumer {
   case class Message[A](id: MessageId, key: MessageKey, payload: A)
   case class DecodingFailure(msg: String) extends Exception(msg) with NoStackTrace
 
-  private def mkConsumer[F[_]: Sync: FutureLift, E: Schema](
+  sealed trait OnFailure
+  object OnFailure {
+    case object Ack extends OnFailure
+    case object Nack extends OnFailure
+    case object Raise extends OnFailure
+  }
+
+  private def mkConsumer[F[_]: Sync: FutureLift, E](
       client: Pulsar.T,
       sub: Subscription,
       topic: Topic,
-      opts: Options[F, E]
+      settings: Settings[F, E]
   ): Resource[F, Consumer[F, E]] = {
 
-    val acquire = FutureLift[F].futureLift {
-      val c = client.newConsumer(Schema[E].schema)
-      val z = topic match {
-        case s: Topic.Single => c.topic(s.url.value)
-        case m: Topic.Multi  => c.topicsPattern(m.url.value.r.pattern)
+    val acquire: F[Either[JConsumer[E], JConsumer[Array[Byte]]]] = {
+      def configure[A](c: ConsumerBuilder[A]) = {
+        val z = topic match {
+          case s: Topic.Single => c.topic(s.url.value)
+          case m: Topic.Multi  => c.topicsPattern(m.url.value.r.pattern)
+        }
+        settings.deadLetterPolicy
+          .fold(z)(z.deadLetterPolicy)
+          .readCompacted(settings.readCompacted)
+          .subscriptionType(sub.`type`.pulsarSubscriptionType)
+          .subscriptionName(sub.name.value)
+          .subscriptionMode(sub.mode.pulsarSubscriptionMode)
+          .subscriptionInitialPosition(settings.initial)
+          .isAckReceiptEnabled(true)
+          .subscribeAsync()
       }
-      opts.deadLetterPolicy
-        .fold(z)(z.deadLetterPolicy)
-        .readCompacted(opts.readCompacted)
-        .subscriptionType(sub.`type`.pulsarSubscriptionType)
-        .subscriptionName(sub.name.value)
-        .subscriptionMode(sub.mode.pulsarSubscriptionMode)
-        .subscriptionInitialPosition(opts.initial)
-        .subscribeAsync
+
+      settings.schema match {
+        case Some(s) =>
+          FutureLift[F].futureLift(configure(client.newConsumer(s))).map(_.asLeft)
+        case None =>
+          FutureLift[F].futureLift(configure(client.newConsumer())).map(_.asRight)
+      }
     }
 
-    def release(c: JConsumer[E]): F[Unit] =
+    def release(ec: Either[JConsumer[E], JConsumer[Array[Byte]]]): F[Unit] =
       FutureLift[F]
-        .futureLift(c.unsubscribeAsync())
+        .futureLift(ec.fold(_.unsubscribeAsync(), _.unsubscribeAsync()))
         .attempt
-        .whenA(opts.autoUnsubscribe) >>
-          FutureLift[F].futureLift(c.closeAsync()).void
+        .whenA(settings.autoUnsubscribe)
+        .flatMap(_ => FutureLift[F].futureLift(ec.fold(_.closeAsync(), _.closeAsync())))
+        .void
 
     Resource
       .make(acquire)(release)
-      .map { c =>
-        new Consumer[F, E] {
-          private def subscribeInternal(autoAck: Boolean): Stream[F, Message[E]] =
-            Stream.repeatEval {
-              FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
-                val e = m.getValue()
+      .map {
+        case Left(c) =>
+          new Consumer[F, E] {
+            private def subscribeInternal(autoAck: Boolean): Stream[F, Message[E]] =
+              Stream.repeatEval {
+                FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
+                  val e = m.getValue()
 
-                opts.logger(e)(Topic.URL(m.getTopicName)) >>
-                  ack(m.getMessageId)
-                    .whenA(autoAck)
-                    .as(Message(m.getMessageId, MessageKey(m.getKey), e))
+                  settings.logger(e)(Topic.URL(m.getTopicName)) >>
+                    ack(m.getMessageId)
+                      .whenA(autoAck)
+                      .as(Message(m.getMessageId, MessageKey(m.getKey), e))
+                }
+
               }
 
-            }
+            override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
+            override def nack(id: MessageId): F[Unit] =
+              Sync[F].delay(c.negativeAcknowledge(id))
+            override def unsubscribe: F[Unit] =
+              FutureLift[F].futureLift(c.unsubscribeAsync()).void
+            override def subscribe: Stream[F, Message[E]] =
+              subscribeInternal(autoAck = false)
+            override def autoSubscribe: Stream[F, E] =
+              subscribeInternal(autoAck = true).map(_.payload)
+          }
+        case Right(c) =>
+          settings.messageDecoder.fold(
+            throw new IllegalArgumentException(
+              "Missing message decoder (used when pulsar schema is not set)"
+            )
+          ) { dec =>
+            new Consumer[F, E] {
+              private def subscribeInternal(autoAck: Boolean): Stream[F, Message[E]] =
+                Stream.repeatEval {
+                  def go: F[Message[E]] =
+                    FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
+                      dec(m.getValue())
+                        .flatMap { e =>
+                          settings.logger(e)(Topic.URL(m.getTopicName)) >>
+                            ack(m.getMessageId)
+                              .whenA(autoAck)
+                              .as(Message(m.getMessageId, MessageKey(m.getKey), e))
+                        }
+                        .handleErrorWith { e =>
+                          settings.decodingErrorHandler(e).flatMap {
+                            case OnFailure.Ack   => ack(m.getMessageId) >> go
+                            case OnFailure.Nack  => nack(m.getMessageId) >> go
+                            case OnFailure.Raise => e.raiseError
+                          }
+                        }
+                    }
+                  go
+                }
 
-          override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
-          override def nack(id: MessageId): F[Unit] =
-            Sync[F].delay(c.negativeAcknowledge(id))
-          override def unsubscribe: F[Unit] =
-            FutureLift[F].futureLift(c.unsubscribeAsync()).void
-          override def subscribe: Stream[F, Message[E]] =
-            subscribeInternal(autoAck = false)
-          override def autoSubscribe: Stream[F, E] =
-            subscribeInternal(autoAck = true).map(_.payload)
-        }
+              override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
+              override def nack(id: MessageId): F[Unit] =
+                Sync[F].delay(c.negativeAcknowledge(id))
+              override def unsubscribe: F[Unit] =
+                FutureLift[F].futureLift(c.unsubscribeAsync()).void
+              override def subscribe: Stream[F, Message[E]] =
+                subscribeInternal(autoAck = false)
+              override def autoSubscribe: Stream[F, E] =
+                subscribeInternal(autoAck = true).map(_.payload)
+            }
+          }
       }
   }
+
+  /**
+    * It creates a [[Consumer]] with the supplied message decoder (schema support disabled).
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      messageDecoder: Array[Byte] => F[E]
+  ): Resource[F, Consumer[F, E]] =
+    make(client, topic, sub, messageDecoder, _ => OnFailure.Raise.pure[F].widen)
+
+  /**
+    * It creates a [[Consumer]] with the supplied message decoder (schema support disabled) and
+    * decoding error handler.
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      messageDecoder: Array[Byte] => F[E],
+      decodingErrorHandler: Throwable => F[OnFailure]
+  ): Resource[F, Consumer[F, E]] = {
+    val settings = Settings[F, E]()
+      .withMessageDecoder(messageDecoder)
+      .withDecodingErrorHandler(decodingErrorHandler)
+    mkConsumer(client, sub, topic, settings)
+  }
+
+  /**
+    * It creates a [[Consumer]] with the supplied pulsar schema.
+    *
+    * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
+    *
+    * Note that this does not create a subscription to any Topic,
+    * you can use [[Consumer#subscribe]] for this purpose.
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic,
+      sub: Subscription,
+      schema: Schema[E]
+  ): Resource[F, Consumer[F, E]] =
+    mkConsumer(client, sub, topic, Settings[F, E]().withSchema(schema))
 
   /**
     * It creates a [[Consumer]] with the supplied options, or a default value otherwise.
@@ -139,33 +252,34 @@ object Consumer {
     * Note that this does not create a subscription to any Topic,
     * you can use [[Consumer#subscribe]] for this purpose.
     */
-  def make[F[_]: Sync: FutureLift, E: Schema](
+  def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic,
       sub: Subscription,
-      opts: Options[F, E] = null // default value does not work
-  ): Resource[F, Consumer[F, E]] = {
-    val _opts = Option(opts).getOrElse(Options[F, E]())
-    mkConsumer(client, sub, topic, _opts)
-  }
+      settings: Settings[F, E]
+  ): Resource[F, Consumer[F, E]] =
+    mkConsumer(client, sub, topic, settings)
 
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
-  sealed abstract class Options[F[_], E] {
+  sealed abstract class Settings[F[_], E] {
     val initial: SubscriptionInitialPosition
     val logger: E => Topic.URL => F[Unit]
     val autoUnsubscribe: Boolean
     val readCompacted: Boolean
     val deadLetterPolicy: Option[DeadLetterPolicy]
+    val messageDecoder: Option[Array[Byte] => F[E]]
+    val decodingErrorHandler: Throwable => F[OnFailure]
+    val schema: Option[Schema[E]]
 
     /**
       * The Subscription Initial Position. `Latest` by default.
       */
-    def withInitialPosition(_initial: SubscriptionInitialPosition): Options[F, E]
+    def withInitialPosition(_initial: SubscriptionInitialPosition): Settings[F, E]
 
     /**
       * The logger action that runs on every message consumed. It does nothing by default.
       */
-    def withLogger(_logger: E => Topic.URL => F[Unit]): Options[F, E]
+    def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
 
     /**
       * It will automatically `unsubscribe` from a topic whenever the consumer is closed.
@@ -176,7 +290,7 @@ object Consumer {
       * modes. Note that unsubscribing from a Shared subscription will always fail when multiple consumers
       * are connected.
       */
-    def withAutoUnsubscribe: Options[F, E]
+    def withAutoUnsubscribe: Settings[F, E]
 
     /**
       * If enabled, the consumer will read messages from the compacted topic rather than reading the full message backlog
@@ -188,7 +302,7 @@ object Consumer {
       * (i.e. failure or exclusive subscriptions). Attempting to enable it on subscriptions to a non-persistent topics
       * or on a shared subscription, will lead to the subscription call throwing a PulsarClientException.
       */
-    def withReadCompacted: Options[F, E]
+    def withReadCompacted: Settings[F, E]
 
     /**
       * Set dead letter policy for consumer.
@@ -197,44 +311,87 @@ object Consumer {
       * By using dead letter mechanism messages will has the max redelivery count, when message exceeding the maximum
       * number of redeliveries, message will send to the Dead Letter Topic and acknowledged automatic.
       */
-    def withDeadLetterPolicy(policy: DeadLetterPolicy): Options[F, E]
+    def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E]
+
+    /**
+      * Set the message decoder.
+      *
+      * Only in use when the Pulsar schema is not set.
+      */
+    def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
+
+    /**
+      * Error handler for messages decoding errors.
+      *
+      * Normal actions are to log and either ack or nack the message, so the consumer can keep on processing messages.
+      *
+      * By default it re-raises the error in F.
+      */
+    def withDecodingErrorHandler(f: Throwable => F[OnFailure]): Settings[F, E]
+
+    /**
+      * Set Pulsar schema (None by default).
+      *
+      * Messages will be automatically decoded by Pulsar consumers, so we don't get a chance to handle decoding failures,
+      * which could terminate your stream.
+      *
+      * Notice that the decodingErrorHandler won't take effect if this is set.
+      */
+    def withSchema(schema: Schema[E]): Settings[F, E]
   }
 
   /**
     * Consumer options such as subscription initial position and message logger.
     */
-  object Options {
-    private case class OptionsImpl[F[_]: Applicative, E](
+  object Settings {
+    private case class SettingsImpl[F[_]: Applicative, E](
         initial: SubscriptionInitialPosition,
         logger: E => Topic.URL => F[Unit],
         autoUnsubscribe: Boolean,
         readCompacted: Boolean,
-        deadLetterPolicy: Option[DeadLetterPolicy]
-    ) extends Options[F, E] {
+        deadLetterPolicy: Option[DeadLetterPolicy],
+        messageDecoder: Option[Array[Byte] => F[E]],
+        decodingErrorHandler: Throwable => F[OnFailure],
+        schema: Option[Schema[E]]
+    ) extends Settings[F, E] {
       override def withInitialPosition(
           _initial: SubscriptionInitialPosition
-      ): Options[F, E] =
+      ): Settings[F, E] =
         copy(initial = _initial)
 
-      override def withLogger(_logger: E => (Topic.URL => F[Unit])): Options[F, E] =
+      override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
         copy(logger = _logger)
 
-      override def withAutoUnsubscribe: Options[F, E] =
+      override def withAutoUnsubscribe: Settings[F, E] =
         copy(autoUnsubscribe = true)
 
-      override def withReadCompacted: Options[F, E] =
+      override def withReadCompacted: Settings[F, E] =
         copy(readCompacted = true)
 
-      override def withDeadLetterPolicy(policy: DeadLetterPolicy): Options[F, E] =
+      override def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E] =
         copy(deadLetterPolicy = Some(policy))
+
+      override def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E] =
+        copy(messageDecoder = Some(f))
+
+      override def withDecodingErrorHandler(
+          f: Throwable => F[OnFailure]
+      ): Settings[F, E] =
+        copy(decodingErrorHandler = f)
+
+      override def withSchema(schema: Schema[E]): Settings[F, E] =
+        copy(schema = Some(schema))
     }
 
-    def apply[F[_]: Applicative, E](): Options[F, E] = OptionsImpl[F, E](
+    def apply[F[_]: Applicative, E](): Settings[F, E] = SettingsImpl[F, E](
       SubscriptionInitialPosition.Latest,
       _ => _ => Applicative[F].unit,
       autoUnsubscribe = false,
       readCompacted = false,
-      deadLetterPolicy = None
+      deadLetterPolicy = None,
+      messageDecoder = None,
+      decodingErrorHandler = _ => OnFailure.Raise.pure[F].widen,
+      schema = None
     )
   }
 

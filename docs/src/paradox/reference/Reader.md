@@ -28,19 +28,18 @@ There's also a `MessageReader` algebra, useful whenever you need more than the p
 
 ## Creating a Reader
 
-The following constructor can be used to create a reader.
+It provides a few constructors as both `Consumer` and `Producer` do for schema and message decoders, in addition to the following generic one.
 
 ```scala mdoc:compile-only
 import dev.profunktor.pulsar._
-import dev.profunktor.pulsar.Reader.Options
-import dev.profunktor.pulsar.schema.Schema
+import dev.profunktor.pulsar.Reader.Settings
 
 import cats.effect._
 
-def make[F[_]: Sync, E: Schema](
+def make[F[_]: Sync, E](
     client: Pulsar.T,
     topic: Topic.Single,
-    opts: Options = Options()
+    settings: Settings[F, E]
 ): Resource[F, Reader[F, E]] = ???
 ```
 
@@ -50,15 +49,17 @@ Once we have a Pulsar client and a topic, we can proceed with the creation of a 
 
 ```scala mdoc
 import dev.profunktor.pulsar._
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
 
 import cats.effect._
+
+val schema = PulsarSchema.utf8
 
 def creation(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Reader[IO, String]] =
-  Reader.make[IO, String](pulsar, topic)
+  Reader.make[IO, String](pulsar, topic, schema)
 ```
 
 ## Reading messages
@@ -78,7 +79,7 @@ def simple(
 
 Or we can first ask whether there are available messages or not via `messageAvailable`.
 
-## Reader Options
+## Reader settings
 
 The reader constructor can also be customized with a few extra options. E.g.
 
@@ -87,16 +88,17 @@ import org.apache.pulsar.client.api.MessageId
 
 val msgId: MessageId = null
 
-val opts =
-  Reader.Options()
+val settings =
+  Reader.Settings[IO, String]()
    .withStartMessageId(msgId)
    .withReadCompacted
+   .withSchema(schema)
 
 def custom(
     pulsar: Pulsar.T,
     topic: Topic.Single
 ): Resource[IO, Reader[IO, String]] =
-  Reader.make(pulsar, topic, opts)
+  Reader.make(pulsar, topic, settings)
 ```
 
 It is the responsibility of the application to know the specific `MessageId`, which internally represents a Ledger ID, Entry ID, and Partition ID.

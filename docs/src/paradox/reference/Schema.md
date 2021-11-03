@@ -11,13 +11,13 @@ If you only want to play around with Pulsar to get familiar with it, you can eit
 The simplest way to get started is to use the given UTF-8 encoding, which makes use of the native `Schema.BYTES`.
 
 ```scala mdoc:compile-only
-import dev.profunktor.pulsar.schema.Schema
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
+import org.apache.pulsar.client.api.Schema
 
-val schema = Schema[String] // summon instance
+val schema: Schema[String] = PulsarSchema.utf8
 ```
 
-This brings into scope an `Schema[String]` instance, required to initialize consumers and producers. There's also a default instance `Schema[A]`, for any `cats.Inject[A, Array[Byte]]` instance (based on `Schema.BYTES` as well).
+Here we create a `Schema[String]`, required to initialize consumers and producers with Pulsar schema support.
 
 @@@ note
 When using schemas, prefer to create the producer(s) before the consumer(s) for fail-fast semantics.
@@ -25,34 +25,15 @@ When using schemas, prefer to create the producer(s) before the consumer(s) for 
 
 ## JSON support
 
-One of the most common communication protocols is JSON, and Neutron integrates with the Circe library to support it. We have a few alternatives here, which come from the `neutron-circe` dependency.
+One of the most common communication protocols is JSON, and Neutron integrates with the Circe library to support it via the `neutron-circe` dependency.
 
-1. `SchemaType.BYTES`: This disables Pulsar schema support, which makes it faster, but there is no schema validation performed by Pulsar.
-2. `SchemaType.JSON`: This enables Pulsar schema support, which means topics can be inspected by Pulsar Functions and so on, and it is validated by Pulsar at runtime, when creating producers and consumers.
+It sets `SchemaType.JSON`, which means topics can be inspected by Pulsar Functions and so on, and it is validated by Pulsar at runtime, when creating producers and consumers.
 
-The former is the easiest one, which only requires instances of Circe's `Decoder` and `Encoder` in scope. Just import `circe.bytes._`, as shown in the example below.
-
-```scala mdoc:compile-only
-import dev.profunktor.pulsar.schema.Schema
-import dev.profunktor.pulsar.schema.circe.bytes._
-
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto._
-
-case class Person(age: Int, name: String)
-object Person {
-  implicit val jsonEncoder: Encoder[Person] = deriveEncoder
-  implicit val jsonDecoder: Decoder[Person] = deriveDecoder
-}
-
-val schema = Schema[Person] // summon an instance
-```
-
-The latter is more complex, and there are two variations. The recommended one is based on semi-automatic derivation, as shown in the example below.
+The recommended one is based on semi-automatic derivation, as shown in the example below.
 
 ```scala mdoc:compile-only
-import dev.profunktor.pulsar.schema.Schema
-import dev.profunktor.pulsar.schema.circe._
+import dev.profunktor.pulsar.schema.circe.JsonSchema
+import org.apache.pulsar.client.api.Schema
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
@@ -61,32 +42,12 @@ case class Event(id: Long, name: String)
 object Event {
   implicit val jsonEncoder: Encoder[Event] = deriveEncoder
   implicit val jsonDecoder: Decoder[Event] = deriveDecoder
-
-  implicit val jsonSchema: JsonSchema[Event] = JsonSchema.derive
 }
 
-val schema = Schema[Event] // summon an instance
+val schema: Schema[Event] = JsonSchema.make[Event]
 ```
 
-It requires instances of `Decoder` and `Encoder`, and of `JsonSchema`, which expects an Avro schema, used internally by Pulsar.
-
-A `JsonSchema` can be created directly using `JsonSchema.derive[A]`, which uses [avro4s](https://github.com/sksamuel/avro4s) under the hood. In fact, this is the recommended way but if you want to get something quickly up and running, you could also use auto-derivation.
-
-```scala mdoc:compile-only
-import dev.profunktor.pulsar.schema.Schema
-import dev.profunktor.pulsar.schema.circe.auto._
-
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto._
-
-case class Foo(tag: String)
-object Foo {
-  implicit val jsonEncoder: Encoder[Foo] = deriveEncoder
-  implicit val jsonDecoder: Decoder[Foo] = deriveDecoder
-}
-
-val schema = Schema[Foo] // summon an instance
-```
+It requires instances of `Decoder` and `Encoder`, and of `SchemaFor`, which comes from the [avro4s](https://github.com/sksamuel/avro4s) library.
 
 Notice that `avro4s` is marked as `Provided`, meaning you need to explicitly add it to your classpath.
 

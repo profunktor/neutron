@@ -20,8 +20,6 @@ package domain
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID
 
-import dev.profunktor.pulsar.schema.circe.JsonSchema
-
 import cats.Eq
 import io.circe._
 import io.circe.generic.semiauto._
@@ -36,6 +34,4 @@ object Event {
 
   implicit val jsonEncoder: Encoder[Event] = deriveEncoder
   implicit val jsonDecoder: Decoder[Event] = deriveDecoder
-
-  implicit val jsonSchema: JsonSchema[Event] = JsonSchema.derive
 }

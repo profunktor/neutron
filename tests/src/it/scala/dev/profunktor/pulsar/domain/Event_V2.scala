@@ -19,8 +19,6 @@ package domain
 
 import java.util.UUID
 
-import dev.profunktor.pulsar.schema.circe.JsonSchema
-
 import cats.Eq
 import io.circe._
 import io.circe.generic.semiauto._
@@ -32,6 +30,4 @@ object Event_V2 {
 
   implicit val jsonEncoder: Encoder[Event_V2] = deriveEncoder
   implicit val jsonDecoder: Decoder[Event_V2] = deriveDecoder
-
-  implicit val jsonSchema: JsonSchema[Event_V2] = JsonSchema.derive
 }

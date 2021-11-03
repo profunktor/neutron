@@ -23,7 +23,7 @@ import io.circe._
 import io.circe.parser.decode
 import io.circe.syntax._
 
-trait JsonAsBytes {
+private[circe] trait JsonAsBytes {
   implicit def circeInjectAsBytes[T: Decoder: Encoder]: Inject[T, Array[Byte]] =
     new Inject[T, Array[Byte]] {
       val inj: T => Array[Byte] =

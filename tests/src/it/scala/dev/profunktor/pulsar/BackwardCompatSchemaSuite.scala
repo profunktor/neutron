@@ -19,7 +19,7 @@ package dev.profunktor.pulsar
 import java.util.UUID
 
 import dev.profunktor.pulsar.domain._
-import dev.profunktor.pulsar.schema.circe._
+import dev.profunktor.pulsar.schema.circe.JsonSchema
 
 import cats.effect._
 import cats.implicits._
@@ -52,12 +52,16 @@ object BackwardCompatSchemaSuite extends IOSuite {
   val batch = Producer.Batching.Disabled
   val shard = (_: Event) => ShardKey.Default
 
+  val schema    = JsonSchema.make[Event]
+  val schema_v2 = JsonSchema.make[Event_V2]
+  val schema_v3 = JsonSchema.make[Event_V3]
+
   test("BACKWARD compatibility: producer sends old Event, Consumer expects Event_V2") {
     client =>
       val res: Resource[IO, (Consumer[IO, Event_V2], Producer[IO, Event])] =
         for {
-          producer <- Producer.make[IO, Event](client, topic)
-          consumer <- Consumer.make[IO, Event_V2](client, topic, sub("circe"))
+          producer <- Producer.make[IO, Event](client, topic, schema)
+          consumer <- Consumer.make[IO, Event_V2](client, topic, sub("circe"), schema_v2)
         } yield consumer -> producer
 
       ignore("FIXME: Not working on Scala 3") >> (
@@ -108,8 +112,9 @@ object BackwardCompatSchemaSuite extends IOSuite {
 
     val res =
       for {
-        producer <- Producer.make[IO, Event](client, topic)
-        consumer <- Consumer.make[IO, Event_V3](client, topic, sub("broken-compat"))
+        producer <- Producer.make[IO, Event](client, topic, schema)
+        consumer <- Consumer
+                     .make[IO, Event_V3](client, topic, sub("broken-compat"), schema_v3)
       } yield consumer -> producer
 
     res.attempt.use {

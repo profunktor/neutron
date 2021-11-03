@@ -21,13 +21,13 @@ import scala.util.control.NoStackTrace
 
 import dev.profunktor.pulsar.Reader.{ Message, MessageAvailable }
 import dev.profunktor.pulsar.internal.FutureLift
-import dev.profunktor.pulsar.schema.Schema
 
 import cats.Functor
 import cats.effect._
 import cats.syntax.all._
 import fs2._
-import org.apache.pulsar.client.api.{ MessageId, Reader => JReader }
+import org.apache.pulsar.client.api.{ MessageId, Reader => JReader, Schema }
+import org.apache.pulsar.client.api.ReaderBuilder
 
 /**
   * A MessageReader can be used to read all the messages currently available in a topic.
@@ -59,56 +59,105 @@ object Reader {
   case class DecodingFailure(bytes: Array[Byte]) extends NoStackTrace
   case class Message[A](id: MessageId, key: MessageKey, payload: A)
 
-  private def mkPulsarReader[F[_]: Sync: FutureLift, E: Schema](
+  private def mkPulsarReader[F[_]: Sync: FutureLift, E](
       client: Pulsar.T,
       topic: Topic.Single,
-      opts: Options
-  ): Resource[F, JReader[E]] =
+      settings: Settings[F, E]
+  ): Resource[F, Either[JReader[E], JReader[Array[Byte]]]] =
     Resource
       .make {
         Sync[F].delay {
-          client
-            .newReader(Schema[E].schema)
-            .topic(topic.url.value)
-            .startMessageId(opts.startMessageId)
-            .startMessageIdInclusive()
-            .readCompacted(opts.readCompacted)
-            .create()
-        }
-      }(c => FutureLift[F].futureLift(c.closeAsync()).void)
+          def configure[A](builder: ReaderBuilder[A]): ReaderBuilder[A] =
+            builder
+              .topic(topic.url.value)
+              .startMessageId(settings.startMessageId)
+              .startMessageIdInclusive()
+              .readCompacted(settings.readCompacted)
 
-  private def mkMessageReader[F[_]: Sync: FutureLift, E](
-      c: JReader[E]
+          settings.schema match {
+            case Some(s) => configure(client.newReader(s)).create().asLeft
+            case None    => configure(client.newReader()).create().asRight
+          }
+        }
+      }(c => FutureLift[F].futureLift(c.fold(_.closeAsync(), _.closeAsync())).void)
+
+  private def mkMessageReader[F[_]: FutureLift: Sync, E](
+      reader: Either[JReader[E], JReader[Array[Byte]]],
+      dec: Option[Array[Byte] => F[E]]
   ): MessageReader[F, E] =
-    new MessageReader[F, E] {
-      private def readMsg: F[Message[E]] =
-        FutureLift[F].futureLift(c.readNextAsync()).map { m =>
-          Message(m.getMessageId, MessageKey(m.getKey), m.getValue)
-        }
-
-      override def read: Stream[F, Message[E]] =
-        Stream.repeatEval(readMsg)
-
-      override def read1: F[Option[Message[E]]] =
-        messageAvailable.flatMap {
-          case MessageAvailable.Yes => readMsg.map(Some(_))
-          case MessageAvailable.No  => none.pure[F]
-        }
-
-      override def readUntil(timeout: FiniteDuration): F[Option[Message[E]]] =
-        messageAvailable.flatMap {
-          case MessageAvailable.Yes =>
-            Sync[F].delay(c.readNext(timeout.length.toInt, timeout.unit)).map { m =>
-              Some(Message(m.getMessageId, MessageKey(m.getKey), m.getValue))
+    reader match {
+      case Left(c) =>
+        new MessageReader[F, E] {
+          private def readMsg: F[Message[E]] =
+            FutureLift[F].futureLift(c.readNextAsync()).map { m =>
+              Message(m.getMessageId, MessageKey(m.getKey), m.getValue)
             }
-          case MessageAvailable.No =>
-            none.pure[F]
+
+          override def read: Stream[F, Message[E]] =
+            Stream.repeatEval(readMsg)
+
+          override def read1: F[Option[Message[E]]] =
+            messageAvailable.flatMap {
+              case MessageAvailable.Yes => readMsg.map(Some(_))
+              case MessageAvailable.No  => none.pure[F]
+            }
+
+          override def readUntil(timeout: FiniteDuration): F[Option[Message[E]]] =
+            messageAvailable.flatMap {
+              case MessageAvailable.Yes =>
+                Sync[F].delay(c.readNext(timeout.length.toInt, timeout.unit)).map { m =>
+                  Some(Message(m.getMessageId, MessageKey(m.getKey), m.getValue))
+                }
+              case MessageAvailable.No =>
+                none.pure[F]
+            }
+
+          override def messageAvailable: F[MessageAvailable] =
+            FutureLift[F].futureLift(c.hasMessageAvailableAsync).map { hasAvailable =>
+              if (hasAvailable) MessageAvailable.Yes else MessageAvailable.No
+            }
+        }
+      case Right(c) =>
+        dec.fold(
+          throw new IllegalArgumentException(
+            "Missing message decoder (used when pulsar schema is not set)"
+          )
+        ) { dec =>
+          new MessageReader[F, E] {
+            private def readMsg: F[Message[E]] =
+              FutureLift[F].futureLift(c.readNextAsync()).flatMap { m =>
+                dec(m.getValue()).map(Message(m.getMessageId, MessageKey(m.getKey), _))
+              }
+
+            override def read: Stream[F, Message[E]] =
+              Stream.repeatEval(readMsg)
+
+            override def read1: F[Option[Message[E]]] =
+              messageAvailable.flatMap {
+                case MessageAvailable.Yes => readMsg.map(Some(_))
+                case MessageAvailable.No  => none.pure[F]
+              }
+
+            override def readUntil(timeout: FiniteDuration): F[Option[Message[E]]] =
+              messageAvailable.flatMap {
+                case MessageAvailable.Yes =>
+                  Sync[F].delay(c.readNext(timeout.length.toInt, timeout.unit)).flatMap {
+                    m =>
+                      dec(m.getValue()).map { v =>
+                        Some(Message(m.getMessageId, MessageKey(m.getKey), v))
+                      }
+                  }
+                case MessageAvailable.No =>
+                  none.pure[F]
+              }
+
+            override def messageAvailable: F[MessageAvailable] =
+              FutureLift[F].futureLift(c.hasMessageAvailableAsync).map { hasAvailable =>
+                if (hasAvailable) MessageAvailable.Yes else MessageAvailable.No
+              }
+          }
         }
 
-      override def messageAvailable: F[MessageAvailable] =
-        FutureLift[F].futureLift(c.hasMessageAvailableAsync).map { hasAvailable =>
-          if (hasAvailable) MessageAvailable.Yes else MessageAvailable.No
-        }
     }
 
   private def mkPayloadReader[F[_]: Functor, E](m: MessageReader[F, E]): Reader[F, E] =
@@ -121,41 +170,82 @@ object Reader {
     }
 
   /**
-    * It creates a [[Reader]] with the supplied [[Options]].
+    * It creates a [[Reader]] with the supplied Pulsar schema.
     */
-  def make[
-      F[_]: Sync: FutureLift,
-      E: Schema
-  ](
+  def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
-      opts: Options = Options()
+      schema: Schema[E]
   ): Resource[F, Reader[F, E]] =
-    mkPulsarReader[F, E](client, topic, opts)
-      .map(c => mkPayloadReader(mkMessageReader[F, E](c)))
+    make[F, E](client, topic, Settings[F, E]().withSchema(schema))
 
   /**
-    * It creates a [[MessageReader]] with the supplied [[Options]].
+    * It creates a [[Reader]] with the supplied message decoder.
     */
-  def messageReader[
-      F[_]: Sync: FutureLift,
-      E: Schema
-  ](
+  def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
-      opts: Options = Options()
+      messageDecoder: Array[Byte] => F[E]
+  ): Resource[F, Reader[F, E]] =
+    make[F, E](client, topic, Settings[F, E]().withMessageDecoder(messageDecoder))
+
+  /**
+    * It creates a [[Reader]] with the supplied [[Settings]].
+    */
+  def make[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      settings: Settings[F, E]
+  ): Resource[F, Reader[F, E]] =
+    mkPulsarReader[F, E](client, topic, settings)
+      .map(c => mkPayloadReader(mkMessageReader[F, E](c, settings.messageDecoder)))
+
+  /**
+    * It creates a [[MessageReader]] with the supplied Pulsar schema.
+    */
+  def messageReader[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      schema: Schema[E]
   ): Resource[F, MessageReader[F, E]] =
-    mkPulsarReader[F, E](client, topic, opts).map(mkMessageReader[F, E])
+    messageReader[F, E](client, topic, Settings[F, E]().withSchema(schema))
+
+  /**
+    * It creates a [[MessageReader]] with the supplied message decoder.
+    */
+  def messageReader[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      messageDecoder: Array[Byte] => F[E]
+  ): Resource[F, MessageReader[F, E]] =
+    messageReader[F, E](
+      client,
+      topic,
+      Settings[F, E]().withMessageDecoder(messageDecoder)
+    )
+
+  /**
+    * It creates a [[MessageReader]] with the supplied [[Settings]].
+    */
+  def messageReader[F[_]: FutureLift: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      settings: Settings[F, E]
+  ): Resource[F, MessageReader[F, E]] =
+    mkPulsarReader[F, E](client, topic, settings)
+      .map(mkMessageReader[F, E](_, settings.messageDecoder))
 
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
-  sealed abstract class Options {
+  sealed abstract class Settings[F[_], E] {
     val startMessageId: MessageId
     val readCompacted: Boolean
+    val messageDecoder: Option[Array[Byte] => F[E]]
+    val schema: Option[Schema[E]]
 
     /**
       * The Start message Id. `Latest` by default.
       */
-    def withStartMessageId(_startMessageId: MessageId): Options
+    def withStartMessageId(_startMessageId: MessageId): Settings[F, E]
 
     /**
       * If enabled, the consumer will read messages from the compacted topic rather than reading the full message backlog
@@ -167,27 +257,49 @@ object Reader {
       * (i.e. failure or exclusive subscriptions). Attempting to enable it on subscriptions to a non-persistent topics
       * or on a shared subscription, will lead to the subscription call throwing a PulsarClientException.
       */
-    def withReadCompacted: Options
+    def withReadCompacted: Settings[F, E]
+
+    /**
+      * Set the message decoder.
+      *
+      * Only in use when the Pulsar schema is not set.
+      */
+    def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E]
+
+    /**
+      * Set the Pulsar schema.
+      */
+    def withSchema(_schema: Schema[E]): Settings[F, E]
   }
 
   /**
     * Consumer options such as subscription initial position and message logger.
     */
-  object Options {
-    private case class OptionsImpl(
+  object Settings {
+    private case class SettingsImpl[F[_], E](
         startMessageId: MessageId,
-        readCompacted: Boolean
-    ) extends Options {
-      override def withStartMessageId(_startMessageId: MessageId): Options =
+        readCompacted: Boolean,
+        messageDecoder: Option[Array[Byte] => F[E]],
+        schema: Option[Schema[E]]
+    ) extends Settings[F, E] {
+      override def withStartMessageId(_startMessageId: MessageId): Settings[F, E] =
         copy(startMessageId = _startMessageId)
 
-      override def withReadCompacted: Options =
+      override def withReadCompacted: Settings[F, E] =
         copy(readCompacted = true)
+
+      override def withSchema(_schema: Schema[E]): Settings[F, E] =
+        copy(schema = Some(_schema))
+
+      override def withMessageDecoder(f: Array[Byte] => F[E]): Settings[F, E] =
+        copy(messageDecoder = Some(f))
     }
 
-    def apply(): Options = OptionsImpl(
-      MessageId.latest,
-      readCompacted = false
+    def apply[F[_], E](): Settings[F, E] = SettingsImpl[F, E](
+      startMessageId = MessageId.latest,
+      readCompacted = false,
+      messageDecoder = None,
+      schema = None
     )
   }
 

@@ -16,8 +16,6 @@
 
 package dev.profunktor.pulsar.domain
 
-import dev.profunktor.pulsar.schema.circe.JsonSchema
-
 import cats.Eq
 import io.circe._
 import io.circe.generic.semiauto._
@@ -29,6 +27,4 @@ object Outer {
 
   implicit val jsonEncoder: Encoder[Inner] = deriveEncoder
   implicit val jsonDecoder: Decoder[Inner] = deriveDecoder
-
-  implicit val jsonSchema: JsonSchema[Inner] = JsonSchema.derive
 }

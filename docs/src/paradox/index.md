@@ -24,7 +24,7 @@ Here's a quick consumer / producer example using neutron. Note: both are fully a
 import scala.concurrent.duration._
 
 import dev.profunktor.pulsar._
-import dev.profunktor.pulsar.schema.utf8._
+import dev.profunktor.pulsar.schema.PulsarSchema
 
 import cats.effect._
 import fs2.Stream
@@ -46,11 +46,13 @@ object Demo extends IOApp.Simple {
       .withType(Subscription.Type.Exclusive)
       .build
 
+  val schema = PulsarSchema.utf8
+
   val resources: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
     for {
       pulsar   <- Pulsar.make[IO](config.url)
-      consumer <- Consumer.make[IO, String](pulsar, topic, subs)
-      producer <- Producer.make[IO, String](pulsar, topic)
+      consumer <- Consumer.make[IO, String](pulsar, topic, subs, schema)
+      producer <- Producer.make[IO, String](pulsar, topic, schema)
     } yield consumer -> producer
 
   val run: IO[Unit] =

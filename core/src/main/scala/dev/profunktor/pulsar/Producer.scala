@@ -22,13 +22,12 @@ import scala.concurrent.duration.FiniteDuration
 
 import dev.profunktor.pulsar.internal.FutureLift
 import dev.profunktor.pulsar.internal.TypedMessageBuilderOps._
-import dev.profunktor.pulsar.schema.Schema
 
 import cats._
 import cats.effect._
 import cats.syntax.all._
 import fs2.concurrent.{ Topic => _ }
-import org.apache.pulsar.client.api.{ MessageId, ProducerBuilder }
+import org.apache.pulsar.client.api.{ MessageId, ProducerBuilder, Schema }
 
 trait Producer[F[_], E] {
 
@@ -62,20 +61,37 @@ object Producer {
   }
 
   /**
-    * It creates a simple [[Producer]] with the supplied options.
+    * It creates a simple [[Producer]] with the supplied message encoder (schema support disabled).
     */
-  def make[F[_]: Sync: FutureLift: Parallel, E: Schema](
+  def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
-      opts: Options[F, E] = null // default value does not work
-  ): Resource[F, Producer[F, E]] = {
-    val _opts = Option(opts).getOrElse(Options[F, E]())
+      messageEncoder: E => Array[Byte]
+  ): Resource[F, Producer[F, E]] =
+    make[F, E](client, topic, Settings[F, E]().withMessageEncoder(messageEncoder))
 
-    def configureBatching(
-        batching: Batching,
-        producerBuilder: ProducerBuilder[E]
-    ): ProducerBuilder[E] =
-      batching match {
+  /**
+    * It creates a simple [[Producer]] with the supplied Pulsar schema.
+    */
+  def make[F[_]: FutureLift: Parallel: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      schema: Schema[E]
+  ): Resource[F, Producer[F, E]] =
+    make[F, E](client, topic, Settings[F, E]().withSchema(schema))
+
+  /**
+    * It creates a simple [[Producer]] with the supplied options.
+    */
+  def make[F[_]: FutureLift: Parallel: Sync, E](
+      client: Pulsar.T,
+      topic: Topic.Single,
+      settings: Settings[F, E]
+  ): Resource[F, Producer[F, E]] = {
+    def configure[A](
+        producerBuilder: ProducerBuilder[A]
+    ): ProducerBuilder[A] =
+      settings.batching match {
         case Batching.Enabled(delay, _) =>
           producerBuilder
             .enableBatching(true)
@@ -84,71 +100,110 @@ object Producer {
               TimeUnit.MILLISECONDS
             )
             .batchingMaxMessages(5)
+            .topic(topic.url.value)
         case Batching.Disabled =>
-          producerBuilder.enableBatching(false)
+          producerBuilder
+            .enableBatching(false)
+            .topic(topic.url.value)
       }
 
     Resource
       .make {
-        Sync[F].delay(
-          configureBatching(
-            _opts.batching,
-            client.newProducer(Schema[E].schema).topic(topic.url.value)
-          ).create
-        )
-      }(p => FutureLift[F].futureLift(p.closeAsync()).void)
-      .map { prod =>
-        new Producer[F, E] {
-          override def send(msg: E, key: MessageKey): F[MessageId] =
-            _opts.logger(msg)(topic.url) &> FutureLift[F].futureLift {
-                  prod
-                    .newMessage()
-                    .value(msg)
-                    .withShardKey(_opts.shardKey(msg))
-                    .withMessageKey(key)
-                    .sendAsync()
-                }
-
-          override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
-
-          override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
-
-          override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+        Sync[F].delay {
+          settings.schema match {
+            case Some(s) => configure(client.newProducer(s)).create().asLeft
+            case None    => configure(client.newProducer()).create().asRight
+          }
         }
+      }(p => FutureLift[F].futureLift(p.fold(_.closeAsync(), _.closeAsync())).void)
+      .map {
+        case Left(p) =>
+          new Producer[F, E] {
+            override def send(msg: E, key: MessageKey): F[MessageId] =
+              settings.logger(msg)(topic.url) &> FutureLift[F].futureLift {
+                    p.newMessage()
+                      .value(msg)
+                      .withShardKey(settings.shardKey(msg))
+                      .withMessageKey(key)
+                      .sendAsync()
+                  }
+
+            override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
+
+            override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
+
+            override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+          }
+
+        case Right(p) =>
+          settings.messageEncoder.fold(
+            throw new IllegalArgumentException(
+              "Missing message encoder (used when pulsar schema is not set)"
+            )
+          ) { enc =>
+            new Producer[F, E] {
+              override def send(msg: E, key: MessageKey): F[MessageId] =
+                settings.logger(msg)(topic.url) &> FutureLift[F].futureLift {
+                      p.newMessage()
+                        .value(enc(msg))
+                        .withShardKey(settings.shardKey(msg))
+                        .withMessageKey(key)
+                        .sendAsync()
+                    }
+
+              override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
+
+              override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
+
+              override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+            }
+          }
       }
   }
 
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
-  sealed abstract class Options[F[_], E] {
+  sealed abstract class Settings[F[_], E] {
     val batching: Batching
     val shardKey: E => ShardKey
     val logger: E => Topic.URL => F[Unit]
-    def withBatching(_batching: Batching): Options[F, E]
-    def withShardKey(_shardKey: E => ShardKey): Options[F, E]
-    def withLogger(_logger: E => Topic.URL => F[Unit]): Options[F, E]
+    val messageEncoder: Option[E => Array[Byte]]
+    val schema: Option[Schema[E]]
+    def withBatching(_batching: Batching): Settings[F, E]
+    def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
+    def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
+    def withMessageEncoder(f: E => Array[Byte]): Settings[F, E]
+    def withSchema(_schema: Schema[E]): Settings[F, E]
   }
 
   /**
     * Producer options such as sharding key, batching, and message logger
     */
-  object Options {
-    private case class OptionsImpl[F[_], E](
+  object Settings {
+    private case class SettingsImpl[F[_], E](
         batching: Batching,
         shardKey: E => ShardKey,
-        logger: E => Topic.URL => F[Unit]
-    ) extends Options[F, E] {
-      override def withBatching(_batching: Batching): Options[F, E] =
+        logger: E => Topic.URL => F[Unit],
+        messageEncoder: Option[E => Array[Byte]],
+        schema: Option[Schema[E]]
+    ) extends Settings[F, E] {
+      override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withShardKey(_shardKey: E => ShardKey): Options[F, E] =
+      override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
         copy(shardKey = _shardKey)
-      override def withLogger(_logger: E => (Topic.URL => F[Unit])): Options[F, E] =
+      override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
         copy(logger = _logger)
+      override def withMessageEncoder(f: E => Array[Byte]): Settings[F, E] =
+        copy(messageEncoder = Some(f))
+      override def withSchema(_schema: Schema[E]): Settings[F, E] =
+        copy(schema = Some(_schema))
     }
-    def apply[F[_]: Applicative, E](): Options[F, E] =
-      OptionsImpl[F, E](
+    def apply[F[_]: Applicative, E](): Settings[F, E] =
+      SettingsImpl[F, E](
         Batching.Disabled,
         _ => ShardKey.Default,
-        _ => _ => Applicative[F].unit
+        _ => _ => Applicative[F].unit,
+        None,
+        None
       )
   }
 
