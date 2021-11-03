@@ -98,7 +98,7 @@ Finally, there's a generic `make` which takes an `Settings[F, E]` where we can s
 BEWARE if you set the pulsar schema, then a decoding error handler won't take effect. Also, if you do not set neither the schema or the message decoder, then you'll get a runtime error when creating the consumer.
 
 ```scala
-def make[F[_]: Sync: FutureLift, E: Schema](
+def make[F[_]: Sync: FutureLift, E](
     client: Pulsar.T,
     topic: Topic,
     sub: Subscription,

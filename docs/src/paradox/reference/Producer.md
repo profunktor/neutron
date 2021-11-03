@@ -43,7 +43,7 @@ def make[F[_]: FutureLift: Parallel: Sync, E](
 Otherwise, we have the generic constructor that takes in a Producer.Settings argument.
 
 ```scala
-def make[F[_]: Sync, E: Schema](
+def make[F[_]: Sync, E](
     client: Pulsar.T,
     topic: Topic.Single,
     settings: Settings[F, E] = null // default value does not work with generics
