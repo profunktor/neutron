@@ -1,6 +1,6 @@
 # Neutron
 
-Neutron is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the Java Pulsar client.
+Neutron is a purely functional [Apache Pulsar](https://pulsar.apache.org/) client for Scala, build on top of [fs2](https://fs2.io) and the [Java client for Pulsar](https://pulsar.apache.org/docs/en/client-libraries-java/).
 
 @@@index
 
