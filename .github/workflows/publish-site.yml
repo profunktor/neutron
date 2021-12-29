@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0 # fetch all branches & tags
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v12
+        uses: cachix/install-nix-action@v14.1
 
       - name: "Install SSH 🔑 for GH pages"
         uses: shimataro/ssh-key-action@v2.3.1
