@@ -13,7 +13,6 @@ jobs:
     strategy:
       matrix:
         java:
-          - jdk11
           - jdk17
 
     steps:
@@ -26,14 +25,10 @@ jobs:
         uses: coursier/cache-action@v4.1
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v14.1
+        uses: cachix/install-nix-action@v16
 
-      - name: "Run with ${{ matrix.java }} 🚀"
-        # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
-        run: |
-          nix-shell \
-            --argstr java "${{ matrix.java }}" \
-            --run "SBT_OPTS='--add-opens java.base/java.lang=ALL-UNNAMED' sbt + 'IntegrationTest/test;test;makeSite;doc'"
+      - name: "Run neutron tests 🚀"
+        run: nix develop -c sbt 'IntegrationTest/test;test;makeSite;doc'
 
       - name: "Shutting down Pulsar 🐳"
         run: docker-compose down

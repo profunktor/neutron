@@ -26,8 +26,11 @@
               pkgs.gnupg
               pkgs.sbt
             ];
+
+            # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
             shellHook = ''
               JAVA_HOME="${jdk}"
+              SBT_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
             '';
           };
         };

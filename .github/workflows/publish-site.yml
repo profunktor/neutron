@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0 # fetch all branches & tags
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v14.1
+        uses: cachix/install-nix-action@v16
 
       - name: "Install SSH 🔑 for GH pages"
         uses: shimataro/ssh-key-action@v2.3.1
@@ -29,6 +29,5 @@ jobs:
       - run: git config --global user.email "neutron-site-bot@profunktor.dev"
       - run: git config --global user.name "neutron-site-bot"
 
-        # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
       - name: "Build microsite 🚧"
-        run: nix-shell --run "SBT_OPTS='--add-opens java.base/java.lang=ALL-UNNAMED' sbt ghpagesPushSite"
+        run: nix develop -c sbt ghpagesPushSite
