@@ -12,9 +12,24 @@
 
   outputs = { self, nixpkgs, flake-utils, ... }:
     let
+      # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
+      sbt-overlay = self: super: {
+        sbt = super.sbt.overrideAttrs (
+          old: {
+            nativeBuildInputs = old.nativeBuildInputs or [ ] ++ [ super.makeWrapper ];
+            postInstall = ''
+              wrapProgram $out/bin/sbt --suffix SBT_OPTS : '--add-opens java.base/java.lang=ALL-UNNAMED'
+            '';
+          }
+        );
+      };
+
       forSystem = system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ sbt-overlay ];
+          };
           jdk = pkgs.jdk17_headless;
         in
         {
@@ -27,10 +42,8 @@
               pkgs.sbt
             ];
 
-            # Setting SBT_OPTS because of this bug: https://github.com/sbt/sbt-site/issues/169
             shellHook = ''
               JAVA_HOME="${jdk}"
-              SBT_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
             '';
           };
         };
