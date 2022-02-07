@@ -89,7 +89,6 @@ lazy val `neutron-function` = (project in file("function"))
           Libraries.pulsarFunctionsApi,
           Libraries.cats             % Test,
           Libraries.catsEffect       % Test,
-          Libraries.cats             % Test,
           Libraries.weaverCats       % Test,
           Libraries.weaverScalaCheck % Test
         ) ++ avro4sDep(scalaVersion.value)
