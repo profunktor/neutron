@@ -19,6 +19,7 @@ package dev.profunktor.pulsar
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.CollectionConverters._
 
 import dev.profunktor.pulsar.internal.FutureLift
 import dev.profunktor.pulsar.internal.TypedMessageBuilderOps._
@@ -42,6 +43,16 @@ trait Producer[F[_], E] {
   def send(msg: E, key: MessageKey): F[MessageId]
 
   /**
+    * Sends a message associated with a set of properties asynchronously.
+    */
+  def send(msg: E, properties: Map[String, String]): F[MessageId]
+
+  /**
+    * Sends a message associated with a `key` and a set of properties asynchronously.
+    */
+  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
+
+  /**
     * Same as [[send(msg:E)*]] but it discards its output.
     */
   def send_(msg: E): F[Unit]
@@ -50,6 +61,11 @@ trait Producer[F[_], E] {
     * Same as `send(msg:E,key:MessageKey)` but it discards its output.
     */
   def send_(msg: E, key: MessageKey): F[Unit]
+
+  /**
+    * Same as `send(msg:E,properties:Map[String, String])` but it discards its output.
+    */
+  def send_(msg: E, properties: Map[String, String]): F[Unit]
 }
 
 object Producer {
@@ -146,20 +162,32 @@ object Producer {
       .map {
         case Left(p) =>
           new Producer[F, E] {
-            override def send(msg: E, key: MessageKey): F[MessageId] =
+            override def send(msg: E, key: MessageKey, properties: Map[String, String])
+                : F[MessageId] =
               settings.logger(msg)(topic.url) &> FutureLift[F].futureLift {
                     p.newMessage()
                       .value(msg)
+                      .properties(properties.asJava)
                       .withShardKey(settings.shardKey(msg))
                       .withMessageKey(key)
                       .sendAsync()
                   }
+
+            override def send(msg: E, key: MessageKey): F[MessageId] =
+              send(msg, key, Map.empty)
 
             override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
 
             override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
 
             override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+
+            override def send(msg: E, properties: Map[String, String]): F[MessageId] =
+              send(msg, MessageKey.Empty, properties)
+
+            override def send_(msg: E, properties: Map[String, String]): F[Unit] =
+              send(msg, properties).void
+
           }
 
         case Right(p) =>
@@ -169,20 +197,31 @@ object Producer {
             )
           ) { enc =>
             new Producer[F, E] {
-              override def send(msg: E, key: MessageKey): F[MessageId] =
+              override def send(msg: E, key: MessageKey, properties: Map[String, String])
+                  : F[MessageId] =
                 settings.logger(msg)(topic.url) &> FutureLift[F].futureLift {
                       p.newMessage()
                         .value(enc(msg))
+                        .properties(properties.asJava)
                         .withShardKey(settings.shardKey(msg))
                         .withMessageKey(key)
                         .sendAsync()
                     }
+
+              override def send(msg: E, key: MessageKey): F[MessageId] =
+                send(msg, key, Map.empty)
 
               override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
 
               override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
 
               override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+
+              override def send(msg: E, properties: Map[String, String]): F[MessageId] =
+                send(msg, MessageKey.Empty, properties)
+
+              override def send_(msg: E, properties: Map[String, String]): F[Unit] =
+                send(msg, properties).void
             }
           }
       }

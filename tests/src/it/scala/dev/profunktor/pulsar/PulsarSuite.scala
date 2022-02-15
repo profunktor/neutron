@@ -99,6 +99,45 @@ object PulsarSuite extends IOSuite {
     }
   }
 
+  test(
+    "A message with properties is published and consumed successfully using Schema.BYTES"
+  ) { client =>
+    val mpTopic = topic("message-with-properties")
+
+    val utf8 = PulsarSchema.utf8
+
+    val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
+      for {
+        producer <- Producer.make[IO, String](client, mpTopic, utf8)
+        consumer <- Consumer.make[IO, String](client, mpTopic, sub("hps-props"), utf8)
+      } yield consumer -> producer
+
+    Deferred[IO, (String, Map[String, String])].flatMap { latch =>
+      Stream
+        .resource(res)
+        .flatMap {
+          case (consumer, producer) =>
+            val consume =
+              consumer.subscribe.evalMap {
+                case Consumer.Message(id, _, props, payload) =>
+                  consumer.ack(id) *> latch.complete(payload -> props)
+              }
+
+            val testMsg   = "test"
+            val testProps = Map("metadata1" -> "foo", "metadata2" -> "bar")
+
+            val produce =
+              Stream.eval(producer.send_(testMsg, testProps) *> latch.get)
+
+            produce.concurrently(consume).evalMap { e =>
+              IO(expect.same(e, testMsg -> testProps))
+            }
+        }
+        .compile
+        .lastOrError
+    }
+  }
+
   test("A message is published and consumed successfully using Schema.JSON via Circe") {
     client =>
       val hpTopic = topic("happy-path-json")

@@ -11,12 +11,12 @@ import org.apache.pulsar.client.api.MessageId
 trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
   def send(msg: E, key: MessageKey): F[MessageId]
-  def send_(msg: E): F[Unit]
-  def send_(msg: E, key: MessageKey): F[Unit]
+  def send(msg: E, properties: Map[String, String]): F[MessageId]
+  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
 }
 ```
 
-We will expand on its methods in the next few sections.
+As well as the `send_` equivalent that discards the `MessageId` and returns `F[Unit]`. We will expand on its methods in the next few sections.
 
 ## Creating a Producer
 

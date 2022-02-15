@@ -16,6 +16,7 @@
 
 package dev.profunktor.pulsar
 
+import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 import dev.profunktor.pulsar.internal.FutureLift
@@ -62,7 +63,13 @@ trait Consumer[F[_], E] {
 
 object Consumer {
 
-  case class Message[A](id: MessageId, key: MessageKey, payload: A)
+  case class Message[A](
+      id: MessageId,
+      key: MessageKey,
+      properties: Map[String, String],
+      payload: A
+  )
+
   case class DecodingFailure(msg: String) extends Exception(msg) with NoStackTrace
 
   sealed trait OnFailure
@@ -125,7 +132,14 @@ object Consumer {
                   settings.logger(e)(Topic.URL(m.getTopicName)) >>
                     ack(m.getMessageId)
                       .whenA(autoAck)
-                      .as(Message(m.getMessageId, MessageKey(m.getKey), e))
+                      .as(
+                        Message(
+                          m.getMessageId,
+                          MessageKey(m.getKey),
+                          m.getProperties.asScala.toMap,
+                          e
+                        )
+                      )
                 }
 
               }
@@ -156,7 +170,14 @@ object Consumer {
                           settings.logger(e)(Topic.URL(m.getTopicName)) >>
                             ack(m.getMessageId)
                               .whenA(autoAck)
-                              .as(Message(m.getMessageId, MessageKey(m.getKey), e))
+                              .as(
+                                Message(
+                                  m.getMessageId,
+                                  MessageKey(m.getKey),
+                                  m.getProperties.asScala.toMap,
+                                  e
+                                )
+                              )
                         }
                         .handleErrorWith { e =>
                           settings.decodingErrorHandler(e).flatMap {

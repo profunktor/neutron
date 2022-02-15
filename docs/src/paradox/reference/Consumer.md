@@ -11,7 +11,12 @@ import fs2.Stream
 import org.apache.pulsar.client.api.MessageId
 
 object Consumer {
-  case class Message[A](id: MessageId, key: MessageKey, payload: A)
+  case class Message[A](
+      id: MessageId,
+      key: MessageKey,
+      properties: Map[String, String],
+      payload: A
+  )
 }
 
 trait Consumer[F[_], E] {
@@ -145,7 +150,7 @@ def manual(
 ): IO[Unit] =
   consumer
    .subscribe
-   .evalMap { case Consumer.Message(id, _, payload) =>
+   .evalMap { case Consumer.Message(id, _, _, payload) =>
      process(payload) // pretend `process` might raise an error
        .flatMap(_ => consumer.ack(id))
        .handleErrorWith(e => IO.println(e) *> consumer.nack(id))
