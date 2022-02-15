@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<meta name="description" content="docs">
+<meta name="generator" content="Paradox, paradox-material-theme=0.6.0, mkdocs-material=3.0.3">
+
+<meta name="lang:clipboard.copy" content="Copy to clipboard">
+<meta name="lang:clipboard.copied" content="Copied to clipboard">
+<meta name="lang:search.language" content="">
+<meta name="lang:search.pipeline.stopwords" content="true">
+<meta name="lang:search.pipeline.trimmer" content="true">
+<meta name="lang:search.result.none" content="No matching documents">
+<meta name="lang:search.result.one" content="1 matching document">
+<meta name="lang:search.result.other" content="# matching documents">
+<meta name="lang:search.tokenizer" content="[\s\-]+">
+
+
+<meta name="description" content="docs">
+<link rel="shortcut icon" href="../assets/images/favicon.png">
+<title>Producer · Neutron</title>
+<link rel="stylesheet" href="../assets/stylesheets/application.451f80e5.css">
+<link rel="stylesheet" href="../assets/stylesheets/application-palette.22915126.css">
+<meta name="theme-color" content="#009688" />
+<link rel="stylesheet" href="../lib/material__tabs/dist/mdc.tabs.min.css">
+<link rel="stylesheet" href="../lib/prettify/prettify.css">
+<script src="../assets/javascripts/modernizr.1aa3b519.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700|Roboto+Mono">
+<style>
+body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}
+code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}
+</style>
+<link rel="stylesheet" href="../assets/fonts/font-awesome.css">
+<link rel="stylesheet" href="../assets/fonts/material-icons.css">
+<link rel="stylesheet" href="../assets/stylesheets/paradox-material-theme.css">
+</head>
+<body
+data-md-color-primary="teal"
+data-md-color-accent="indigo"
+>
+<input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+<input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+<label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+<header class="md-header" data-md-component="header">
+<nav class="md-header-nav md-grid">
+<div class="md-flex">
+<div class="md-flex__cell md-flex__cell--shrink">
+<a href="../index.html" title="Neutron" class="md-header-nav__button md-logo">
+<i class="md-icon">flash_on</i>
+</a>
+</div>
+<div class="md-flex__cell md-flex__cell--shrink">
+<label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+</div>
+<div class="md-flex__cell md-flex__cell--stretch">
+<div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+<span class="md-header-nav__topic">
+Neutron
+</span>
+<span class="md-header-nav__topic">
+Producer
+</span>
+</div>
+</div>
+<div class="md-flex__cell md-flex__cell--shrink">
+<label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+<label class="md-icon md-search__icon" for="__search"></label>
+<button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">&#xE5CD;</button>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix>
+<div class="md-search-result" data-md-component="result">
+<div class="md-search-result__meta">
+Type to start searching
+</div>
+<ol class="md-search-result__list"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="md-flex__cell md-flex__cell--shrink">
+<div class="md-header-nav__source">
+<a href="https://github.com/profunktor/neutron"
+title="Go to repository"
+class="md-source"
+data-md-source="github">
+<div class="md-source__icon">
+<i class="fa fa-github"></i>
+</div>
+<div class="md-source__repository">
+profunktor/neutron
+</div>
+</a>
+
+</div>
+</div>
+</div>
+</nav>
+</header>
+
+<div class="md-container">
+<main class="md-main">
+<div class="md-main__inner md-grid" data-md-component="container">
+<div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav class="md-nav md-nav--primary" data-md-level="0" style="visibility: hidden">
+<label class="md-nav__title md-nav__title--site" for="drawer">
+<a href="../index.html" title="Neutron" class="md-nav__button md-logo">
+<span class="md-nav__button md-logo">
+<i class="md-icon">flash_on</i>
+</a>
+<a href="../index.html" title="Neutron">
+Neutron
+</a>
+</label>
+<div class="md-nav__source">
+<a href="https://github.com/profunktor/neutron"
+title="Go to repository"
+class="md-source"
+data-md-source="github">
+<div class="md-source__icon">
+<i class="fa fa-github"></i>
+</div>
+<div class="md-source__repository">
+profunktor/neutron
+</div>
+</a>
+
+</div>
+<ul>
+  <li><a href="../reference/Index.html" class="page">Reference</a>
+  <ul>
+    <li><a href="../reference/Connection.html" class="page">Connection</a></li>
+    <li><a href="../reference/Consumer.html" class="page">Consumer</a></li>
+    <li><a href="../reference/Producer.html" class="active page">Producer</a></li>
+    <li><a href="../reference/Reader.html" class="page">Reader</a></li>
+    <li><a href="../reference/Schema.html" class="page">Schema</a></li>
+    <li><a href="../reference/Topic.html" class="page">Topic</a></li>
+  </ul></li>
+</ul>
+<nav class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">Table of contents</label>
+<ul>
+  <li><a href="../reference/Producer.html#producer" class="header">Producer</a>
+  <ul>
+    <li><a href="../reference/Producer.html#creating-a-producer" class="header">Creating a Producer</a></li>
+    <li><a href="../reference/Producer.html#publishing-a-message" class="header">Publishing a message</a></li>
+    <li><a href="../reference/Producer.html#sharding" class="header">Sharding</a></li>
+    <li><a href="../reference/Producer.html#producer-settings" class="header">Producer settings</a></li>
+  </ul></li>
+</ul>
+</nav>
+
+</nav>
+<ul style="display: none">
+<li class="md-nav__item md-version" id="project.version">
+<label class="md-nav__link" for="__version">
+<i class="md-icon" title="Version">label_outline</i> 0.0.0
+</label>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">Table of contents</label>
+<ul>
+  <li><a href="../reference/Producer.html#producer" class="header">Producer</a>
+  <ul>
+    <li><a href="../reference/Producer.html#creating-a-producer" class="header">Creating a Producer</a></li>
+    <li><a href="../reference/Producer.html#publishing-a-message" class="header">Publishing a message</a></li>
+    <li><a href="../reference/Producer.html#sharding" class="header">Sharding</a></li>
+    <li><a href="../reference/Producer.html#producer-settings" class="header">Producer settings</a></li>
+  </ul></li>
+</ul>
+</nav>
+
+</div>
+</div>
+</div>
+<div class="md-content">
+<article class="md-content__inner md-typeset">
+<div class="md-content__searchable">
+<h1><a href="#producer" name="producer" class="anchor"><span class="anchor-link"></span></a>Producer</h1>
+<p>A <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#producers">producer</a> is a process that attaches to a topic and publishes messages to a Pulsar broker.</p>
+<p>Neutron models it via a tagless algebra.</p>
+<pre class="prettyprint"><code class="language-scala mdoc:compile-only">import dev.profunktor.pulsar._
+import org.apache.pulsar.client.api.MessageId
+
+trait Producer[F[_], E] {
+  def send(msg: E): F[MessageId]
+  def send(msg: E, key: MessageKey): F[MessageId]
+  def send(msg: E, properties: Map[String, String]): F[MessageId]
+  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
+}
+</code></pre>
+<p>As well as the <code>send_</code> equivalent that discards the <code>MessageId</code> and returns <code>F[Unit]</code>. We will expand on its methods in the next few sections.</p>
+<h2><a href="#creating-a-producer" name="creating-a-producer" class="anchor"><span class="anchor-link"></span></a>Creating a Producer</h2>
+<p>It defines a few constructs, similarly as <code>Consumer</code> does. If we need Pulsar schema support, this is the constructor (also another one that takes in an extra argument for the producer settings):</p>
+<pre class="prettyprint"><code class="language-scala">def make[F[_]: FutureLift: Parallel: Sync, E](
+    client: Pulsar.T,
+    topic: Topic.Single,
+    schema: Schema[E]
+): Resource[F, Producer[F, E]] = ???
+</code></pre>
+<p>If we do not need Pulsar schema support, we need to provide a message encoder.</p>
+<pre class="prettyprint"><code class="language-scala">def make[F[_]: FutureLift: Parallel: Sync, E](
+    client: Pulsar.T,
+    topic: Topic.Single,
+    messageEncoder: E =&gt; Array[Byte]
+): Resource[F, Producer[F, E]] = ???
+</code></pre>
+<p>Check out all the available smart constructors either in the API or in the source code.</p>
+<p>Once we have a connection and a topic, we can proceed with the creation of producer. If you missed that part, check out the <a href="Connection.html">connection</a> and <a href="Topic.html">topic</a> docs.</p>
+<pre class="prettyprint"><code class="language-scala mdoc">import dev.profunktor.pulsar._
+import dev.profunktor.pulsar.schema.PulsarSchema
+
+import cats.effect._
+
+val schema = PulsarSchema.utf8
+
+def creation(
+    pulsar: Pulsar.T,
+    topic: Topic.Single
+): Resource[IO, Producer[IO, String]] =
+  Producer.make[IO, String](pulsar, topic, schema)
+</code></pre>
+<h2><a href="#publishing-a-message" name="publishing-a-message" class="anchor"><span class="anchor-link"></span></a>Publishing a message</h2>
+<p>We can publish a message via the <code>send</code> method, which returns a <code>MessageId</code> we could potentially use to store in the application&rsquo;s state. If you don&rsquo;t need it, prefer to use <code>send_</code> instead.</p>
+<pre class="prettyprint"><code class="language-scala mdoc">def simple(
+    producer: Producer[IO, String]
+): IO[Unit] =
+  producer.send_(&quot;some-message&quot;)
+</code></pre>
+<h2><a href="#sharding" name="sharding" class="anchor"><span class="anchor-link"></span></a>Sharding</h2>
+<p>The other two variations also take a <code>MessageKey</code> as argument, which is used for distributing messages.</p>
+<pre class="prettyprint"><code class="language-scala mdoc:compile-only">sealed trait MessageKey
+object MessageKey {
+  final case class Of(value: String) extends MessageKey
+  case object Empty extends MessageKey
+}
+</code></pre>
+<p>This could be useful if you want to publish a message to a specific shard at some point.</p>
+<pre class="prettyprint"><code class="language-scala mdoc">def shard(
+    producer: Producer[IO, String]
+): IO[Unit] = {
+  val msg = &quot;some-message&quot;
+  val key = MessageKey.Of(msg.hashCode.toString)
+  producer.send_(msg, key)
+}
+</code></pre>
+<p>However, if you always want to publish messages according to a specific key, prefer to use the <code>withShardKey</code> option, described in the next section.</p>
+<h2><a href="#producer-settings" name="producer-settings" class="anchor"><span class="anchor-link"></span></a>Producer settings</h2>
+<p>The producer constructor can also be customized with a few extra options. E.g.</p>
+<pre class="prettyprint"><code class="language-scala mdoc">import java.nio.charset.StandardCharsets.UTF_8
+
+import scala.concurrent.duration._
+
+val batching =
+  Producer.Batching.Enabled(maxDelay = 5.seconds, maxMessages = 500)
+
+val encoder: String =&gt; Array[Byte] =
+ _.getBytes(UTF_8)
+
+val settings =
+  Producer.Settings[IO, String]()
+   .withBatching(batching)
+   .withShardKey(s =&gt; ShardKey.Of(s.hashCode.toString.getBytes))
+   .withLogger(e =&gt; url =&gt; IO.println(s&quot;Message: $e, URL: $url&quot;))
+
+def custom(
+    pulsar: Pulsar.T,
+    topic: Topic.Single
+): Resource[IO, Producer[IO, String]] =
+  Producer.make(pulsar, topic, encoder, settings)
+</code></pre>
+<p>The <code>withShardKey</code> option is quite useful when we want to publish messages based on certain property of your messages, e.g. an <code>EventId</code>. This applies when you use it together with <code>KeyShared</code> subscriptions, on the consumer side.</p>
+<p>When a <code>ShardKey</code> is defined, we don&rsquo;t need to provide a <code>MessageKey</code> manually and can just use the simple <code>send</code> and <code>send_</code> methods that take a single argument: the payload.</p>
+</div>
+<div>
+<a href="https://github.com/profunktor/neutron/tree/master/docs/src/paradox/reference/Producer.md" title="Edit this page" class="md-source-file md-edit">
+Edit this page
+</a>
+</div>
+<div class="print-only">
+<span class="md-source-file md-version">
+0.0.0
+</span>
+</div>
+</article>
+</div>
+</div>
+</main>
+<footer class="md-footer">
+<div class="md-footer-nav">
+<nav class="md-footer-nav__inner md-grid">
+<a href="../reference/Consumer.html" title="Consumer" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+<div class="md-flex__cell md-flex__cell--shrink">
+<i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+</div>
+<div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+<span class="md-flex__ellipsis">
+<span class="md-footer-nav__direction">
+Previous
+</span>
+Consumer
+</span>
+</div>
+</a>
+<a href="../reference/Reader.html" title="Reader" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+<div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+<span class="md-flex__ellipsis">
+<span class="md-footer-nav__direction">
+Next
+</span>
+Reader
+</span>
+</div>
+<div class="md-flex__cell md-flex__cell--shrink">
+<i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+</div>
+</a>
+</nav>
+</div>
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-footer-copyright">
+<div class="md-footer-copyright__highlight">
+Copyright © ProfunKtor
+</div>
+Powered by
+<a href="https://github.com/lightbend/paradox">Paradox</a>
+and
+<a href="https://jonas.github.io/paradox-material-theme/">Paradox Material Theme</a>
+
+</div>
+</div>
+</div>
+</footer>
+
+</div>
+<script src="../assets/javascripts/application.583bbe55.js"></script>
+<script src="../assets/javascripts/paradox-material-theme.js"></script>
+<script>app.initialize({version:"0.17",url:{base:"../."}})</script>
+<script type="text/javascript" src="../lib/prettify/prettify.js"></script>
+<script type="text/javascript" src="../lib/prettify/lang-scala.js"></script>
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function(event) {
+window.prettyPrint && prettyPrint();
+});
+</script>
+</body>
+</html>
