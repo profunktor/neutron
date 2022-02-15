@@ -2,7 +2,7 @@
 
 A [consumer](https://pulsar.apache.org/docs/en/concepts-messaging/#consumers) is a process that attaches to a topic via a subscription, in order to receive messages.
 
-Neutron models it via a tagless algebra.
+Neutron models it via the following tagless algebra.
 
 ```scala mdoc:compile-only
 import dev.profunktor.pulsar._
