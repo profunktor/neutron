@@ -24,7 +24,7 @@ Check out the [microsite](https://neutron.profunktor.dev/).
 
 If you have `sbt` installed, you don't have to worry about anything. Simply run `sbt +test` command in the project root to run the tests.
 
-If you are a `nix` user, make sure you enter a `Nix Shell` by running `nix-shell` at the project's root.
+If you are a `nix` user, make sure you enter a development shell by running `nix develop` on the project's root.
 
 ```
 sbt +test

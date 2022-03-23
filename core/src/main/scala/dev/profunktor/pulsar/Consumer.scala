@@ -50,9 +50,8 @@ trait Consumer[F[_], E] {
     * It consumes [[Consumer.Message]]s, which contain the ID and the PAYLOAD, initially
     * resetting the subscription associated with this consumer to a specific message id.
     *
-    * This means it would override the `SubscriptionInitialPosition` set in the settings.
-    *
-    * If you don't need manual [[ack]]ing, consider using [[autoSubscribe]] instead.
+    * This means the `SubscriptionInitialPosition` set in the settings will be overridden
+    * when operating on persistent topics.
     */
   def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
 
