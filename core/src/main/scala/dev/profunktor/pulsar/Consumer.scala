@@ -252,7 +252,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -269,7 +269,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -290,7 +290,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -312,7 +312,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -334,7 +334,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -350,7 +350,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
@@ -369,7 +369,7 @@ object Consumer {
     * A [[Topic]] can either be `Single` or `Multi` for multi topic subscriptions.
     *
     * Note that this does not create a subscription to any Topic,
-    * you can use [[Consumer#subscribe]] for this purpose.
+    * you can use Consumer#subscribe for this purpose.
     */
   private def make[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
