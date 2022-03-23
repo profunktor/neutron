@@ -30,19 +30,24 @@ import org.apache.pulsar.client.api.{ Consumer => JConsumer, _ }
 trait Consumer[F[_], E] {
 
   /**
-    * Acknowledge for a single message.
+    * Acknowledge a single message.
     */
   def ack(id: MessageId): F[Unit]
 
   /**
-    * Negative acknowledge for a single message.
+    * Acknowledge multiple messages.
+    */
+  def ack(ids: Set[MessageId]): F[Unit]
+
+  /**
+    * Negative acknowledge a single message.
     */
   def nack(id: MessageId): F[Unit]
 
   /**
     * It consumes [[Consumer.Message]]s, which contain the ID and the PAYLOAD.
     *
-    * If you don't need manual [[ack]]ing, consider using [[autoSubscribe]] instead.
+    * If you don't need manual acking, consider using [[autoSubscribe]] instead.
     */
   def subscribe: Stream[F, Consumer.Message[E]]
 
@@ -210,7 +215,10 @@ object Consumer {
       .map {
         case Left(c) =>
           new SchemaConsumer[F, E](c, settings) {
-            override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
+            override def ack(id: MessageId): F[Unit] =
+              Sync[F].delay(c.acknowledge(id))
+            override def ack(ids: Set[MessageId]): F[Unit] =
+              Sync[F].delay(c.acknowledge(ids.toList.asJava))
             override def nack(id: MessageId): F[Unit] =
               Sync[F].delay(c.negativeAcknowledge(id))
             override def unsubscribe: F[Unit] =
@@ -229,7 +237,10 @@ object Consumer {
             )
           ) { dec =>
             new ByteConsumer[F, E](c, dec, settings) {
-              override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
+              override def ack(id: MessageId): F[Unit] =
+                Sync[F].delay(c.acknowledge(id))
+              override def ack(ids: Set[MessageId]): F[Unit] =
+                Sync[F].delay(c.acknowledge(ids.toList.asJava))
               override def nack(id: MessageId): F[Unit] =
                 Sync[F].delay(c.negativeAcknowledge(id))
               override def unsubscribe: F[Unit] =
