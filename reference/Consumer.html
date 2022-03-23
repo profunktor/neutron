@@ -158,6 +158,7 @@ profunktor/neutron
     <li><a href="../reference/Consumer.html#creating-a-consumer" class="header">Creating a Consumer</a></li>
     <li><a href="../reference/Consumer.html#auto-subscription" class="header">Auto-subscription</a></li>
     <li><a href="../reference/Consumer.html#manual-ack" class="header">Manual ack</a></li>
+    <li><a href="../reference/Consumer.html#manual-subscription" class="header">Manual subscription</a></li>
     <li><a href="../reference/Consumer.html#unsubscribe" class="header">Unsubscribe</a></li>
     <li><a href="../reference/Consumer.html#consumer-settings" class="header">Consumer settings</a></li>
   </ul></li>
@@ -187,6 +188,7 @@ profunktor/neutron
     <li><a href="../reference/Consumer.html#creating-a-consumer" class="header">Creating a Consumer</a></li>
     <li><a href="../reference/Consumer.html#auto-subscription" class="header">Auto-subscription</a></li>
     <li><a href="../reference/Consumer.html#manual-ack" class="header">Manual ack</a></li>
+    <li><a href="../reference/Consumer.html#manual-subscription" class="header">Manual subscription</a></li>
     <li><a href="../reference/Consumer.html#unsubscribe" class="header">Unsubscribe</a></li>
     <li><a href="../reference/Consumer.html#consumer-settings" class="header">Consumer settings</a></li>
   </ul></li>
@@ -220,6 +222,7 @@ trait Consumer[F[_], E] {
   def ack(id: MessageId): F[Unit]
   def nack(id: MessageId): F[Unit]
   def subscribe: Stream[F, Consumer.Message[E]]
+  def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
   def autoSubscribe: Stream[F, E]
   def unsubscribe: F[Unit]
 }
@@ -319,6 +322,11 @@ def manual(
    .drain
 </code></pre>
 <p>It allows us to decide whether to ack or nack a message (it will be re-delivered by Pulsar).</p>
+<h2><a href="#manual-subscription" name="manual-subscription" class="anchor"><span class="anchor-link"></span></a>Manual subscription</h2>
+<p>As shown in the section above, we can use the <code>subscribe</code> method to manually handle acknowledgements. Additionally, we have another variant of <code>subscribe</code> that takes a <code>MessageId</code> as an argument.</p>
+<pre class="prettyprint"><code class="language-scala">def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
+</code></pre>
+<p>This type of subscription will override the <code>SubscriptionInitialPosition</code> set in the settings and point this consumer to a specific message id &mdash; internally done via <code>seekAsync</code>. This could be useful when we know exactly how far we want to rewind or where exactly we would like to start consuming.</p>
 <h2><a href="#unsubscribe" name="unsubscribe" class="anchor"><span class="anchor-link"></span></a>Unsubscribe</h2>
 <p>We can unsubscribe from a topic via the <code>unsubscribe</code> method, which implies deleting the subscription. We can do this whenever we are sure the process is over and we no longer need such subscription.</p>
 <pre class="prettyprint"><code class="language-scala mdoc">def finish(
@@ -378,7 +386,7 @@ def custom(
 </code></pre>
 </div>
 <div>
-<a href="https://github.com/profunktor/neutron/tree/v0.3.0/docs/src/paradox/reference/Consumer.md" title="Edit this page" class="md-source-file md-edit">
+<a href="https://github.com/profunktor/neutron/tree/master/docs/src/paradox/reference/Consumer.md" title="Edit this page" class="md-source-file md-edit">
 Edit this page
 </a>
 </div>
