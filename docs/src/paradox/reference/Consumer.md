@@ -23,6 +23,7 @@ trait Consumer[F[_], E] {
   def ack(id: MessageId): F[Unit]
   def nack(id: MessageId): F[Unit]
   def subscribe: Stream[F, Consumer.Message[E]]
+  def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
   def autoSubscribe: Stream[F, E]
   def unsubscribe: F[Unit]
 }
@@ -160,6 +161,16 @@ def manual(
 ```
 
 It allows us to decide whether to ack or nack a message (it will be re-delivered by Pulsar).
+
+## Manual subscription
+
+As shown in the section above, we can use the `subscribe` method to manually handle acknowledgements. Additionally, we have another variant of `subscribe` that takes a `MessageId` as an argument.
+
+```scala
+def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
+```
+
+This type of subscription will override the `SubscriptionInitialPosition` set in the settings and point this consumer to a specific message id --- internally done via `seekAsync`. This could be useful when we know exactly how far we want to rewind or where exactly we would like to start consuming.
 
 ## Unsubscribe
 

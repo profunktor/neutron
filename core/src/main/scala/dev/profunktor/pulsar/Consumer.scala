@@ -47,6 +47,16 @@ trait Consumer[F[_], E] {
   def subscribe: Stream[F, Consumer.Message[E]]
 
   /**
+    * It consumes [[Consumer.Message]]s, which contain the ID and the PAYLOAD, initially
+    * resetting the subscription associated with this consumer to a specific message id.
+    *
+    * This means it would override the `SubscriptionInitialPosition` set in the settings.
+    *
+    * If you don't need manual [[ack]]ing, consider using [[autoSubscribe]] instead.
+    */
+  def subscribe(id: MessageId): Stream[F, Consumer.Message[E]]
+
+  /**
     * Auto-ack subscription that consumes the message payload directly.
     */
   def autoSubscribe: Stream[F, E]
@@ -59,6 +69,83 @@ trait Consumer[F[_], E] {
     * [[Subscription.Mode.NonDurable]] instead.
     */
   def unsubscribe: F[Unit]
+}
+
+private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
+    c: JConsumer[E],
+    settings: Consumer.Settings[F, E]
+) extends Consumer[F, E] {
+  def subscribeInternal(
+      autoAck: Boolean,
+      seekId: Option[MessageId] = None
+  ): Stream[F, Consumer.Message[E]] =
+    Stream
+      .exec(
+        seekId.traverse_(id => FutureLift[F].futureLift(c.seekAsync(id)))
+      )
+      .append {
+        Stream.repeatEval {
+          FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
+            val e = m.getValue()
+
+            settings.logger(e)(Topic.URL(m.getTopicName)) >>
+              ack(m.getMessageId)
+                .whenA(autoAck)
+                .as(
+                  Consumer.Message(
+                    m.getMessageId,
+                    MessageKey(m.getKey),
+                    m.getProperties.asScala.toMap,
+                    e
+                  )
+                )
+          }
+        }
+      }
+}
+
+private abstract class ByteConsumer[F[_]: FutureLift: Sync, E](
+    c: JConsumer[Array[Byte]],
+    dec: Array[Byte] => F[E],
+    settings: Consumer.Settings[F, E]
+) extends Consumer[F, E] {
+  def subscribeInternal(
+      autoAck: Boolean,
+      seekId: Option[MessageId] = None
+  ): Stream[F, Consumer.Message[E]] =
+    Stream
+      .exec(
+        seekId.traverse_(id => FutureLift[F].futureLift(c.seekAsync(id)))
+      )
+      .append {
+        Stream.repeatEval {
+          def go: F[Consumer.Message[E]] =
+            FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
+              dec(m.getValue())
+                .flatMap { e =>
+                  settings.logger(e)(Topic.URL(m.getTopicName)) >>
+                    ack(m.getMessageId)
+                      .whenA(autoAck)
+                      .as(
+                        Consumer.Message(
+                          m.getMessageId,
+                          MessageKey(m.getKey),
+                          m.getProperties.asScala.toMap,
+                          e
+                        )
+                      )
+                }
+                .handleErrorWith { e =>
+                  settings.decodingErrorHandler(e).flatMap {
+                    case Consumer.OnFailure.Ack   => ack(m.getMessageId) >> go
+                    case Consumer.OnFailure.Nack  => nack(m.getMessageId) >> go
+                    case Consumer.OnFailure.Raise => e.raiseError
+                  }
+                }
+            }
+          go
+        }
+      }
 }
 
 object Consumer {
@@ -79,7 +166,7 @@ object Consumer {
     case object Raise extends OnFailure
   }
 
-  private def mkConsumer[F[_]: Sync: FutureLift, E](
+  private def mkConsumer[F[_]: FutureLift: Sync, E](
       client: Pulsar.T,
       sub: Subscription,
       topic: Topic,
@@ -123,27 +210,7 @@ object Consumer {
       .make(acquire)(release)
       .map {
         case Left(c) =>
-          new Consumer[F, E] {
-            private def subscribeInternal(autoAck: Boolean): Stream[F, Message[E]] =
-              Stream.repeatEval {
-                FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
-                  val e = m.getValue()
-
-                  settings.logger(e)(Topic.URL(m.getTopicName)) >>
-                    ack(m.getMessageId)
-                      .whenA(autoAck)
-                      .as(
-                        Message(
-                          m.getMessageId,
-                          MessageKey(m.getKey),
-                          m.getProperties.asScala.toMap,
-                          e
-                        )
-                      )
-                }
-
-              }
-
+          new SchemaConsumer[F, E](c, settings) {
             override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
             override def nack(id: MessageId): F[Unit] =
               Sync[F].delay(c.negativeAcknowledge(id))
@@ -151,6 +218,8 @@ object Consumer {
               FutureLift[F].futureLift(c.unsubscribeAsync()).void
             override def subscribe: Stream[F, Message[E]] =
               subscribeInternal(autoAck = false)
+            override def subscribe(id: MessageId): Stream[F, Consumer.Message[E]] =
+              subscribeInternal(autoAck = false, seekId = Some(id))
             override def autoSubscribe: Stream[F, E] =
               subscribeInternal(autoAck = true).map(_.payload)
           }
@@ -160,36 +229,7 @@ object Consumer {
               "Missing message decoder (used when pulsar schema is not set)"
             )
           ) { dec =>
-            new Consumer[F, E] {
-              private def subscribeInternal(autoAck: Boolean): Stream[F, Message[E]] =
-                Stream.repeatEval {
-                  def go: F[Message[E]] =
-                    FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
-                      dec(m.getValue())
-                        .flatMap { e =>
-                          settings.logger(e)(Topic.URL(m.getTopicName)) >>
-                            ack(m.getMessageId)
-                              .whenA(autoAck)
-                              .as(
-                                Message(
-                                  m.getMessageId,
-                                  MessageKey(m.getKey),
-                                  m.getProperties.asScala.toMap,
-                                  e
-                                )
-                              )
-                        }
-                        .handleErrorWith { e =>
-                          settings.decodingErrorHandler(e).flatMap {
-                            case OnFailure.Ack   => ack(m.getMessageId) >> go
-                            case OnFailure.Nack  => nack(m.getMessageId) >> go
-                            case OnFailure.Raise => e.raiseError
-                          }
-                        }
-                    }
-                  go
-                }
-
+            new ByteConsumer[F, E](c, dec, settings) {
               override def ack(id: MessageId): F[Unit] = Sync[F].delay(c.acknowledge(id))
               override def nack(id: MessageId): F[Unit] =
                 Sync[F].delay(c.negativeAcknowledge(id))
@@ -197,6 +237,8 @@ object Consumer {
                 FutureLift[F].futureLift(c.unsubscribeAsync()).void
               override def subscribe: Stream[F, Message[E]] =
                 subscribeInternal(autoAck = false)
+              override def subscribe(id: MessageId): Stream[F, Consumer.Message[E]] =
+                subscribeInternal(autoAck = false, seekId = Some(id))
               override def autoSubscribe: Stream[F, E] =
                 subscribeInternal(autoAck = true).map(_.payload)
             }
