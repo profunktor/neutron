@@ -245,6 +245,7 @@ object PulsarSuite extends IOSuite {
           .Settings[IO, Event]()
           .withShardKey(_.shardKey)
           .withBatching(batch)
+          .withUnsafeConf(_.autoUpdatePartitions(false))
 
       val res: Resource[
         IO,

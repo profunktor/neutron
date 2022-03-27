@@ -165,8 +165,13 @@ object Producer {
         case Deduplication.Enabled  => builder.sendTimeout(0, TimeUnit.SECONDS)
       }
 
+    def unsafeConf[A](
+        builder: ProducerBuilder[A]
+    ): ProducerBuilder[A] =
+      settings.unsafeOps.asInstanceOf[ProducerBuilder[A] => ProducerBuilder[A]](builder)
+
     def configure[A]: ProducerBuilder[A] => ProducerBuilder[A] =
-      b => deduplicationConf(batchingConf(b)).topic(topic.url.value)
+      b => unsafeConf(deduplicationConf(batchingConf(b)).topic(topic.url.value))
 
     /*
      * Internal function that manages Sequence IDs whenever deduplication is enabled.
@@ -282,6 +287,7 @@ object Producer {
     val messageEncoder: Option[E => Array[Byte]]
     val schema: Option[Schema[E]]
     val deduplication: Deduplication
+    val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
     def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
     def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
@@ -292,6 +298,22 @@ object Producer {
       * See: https://pulsar.apache.org/docs/en/cookbooks-deduplication/
       */
     def withDeduplication: Settings[F, E]
+
+    /**
+      * USE THIS ONE WITH CAUTION!
+      *
+      * In case Neutron does not yet support what you're looking for, there is a big chance
+      * the underlying Java client does.
+      *
+      * In this case, you can access the underlying `ProducerBuilder` to customize it. E.g.
+      *
+      * {{{
+      * Settings[F, E]().withUnsafeConf(_.autoUpdatePartitions(true))
+      * }}}
+      *
+      * To be used with extreme caution!
+      */
+    def withUnsafeConf(f: ProducerBuilder[Any] => ProducerBuilder[Any]): Settings[F, E]
 
     // protected to ensure users don't set it and instead use the proper smart constructors
     protected[pulsar] def withMessageEncoder(f: E => Array[Byte]): Settings[F, E]
@@ -308,7 +330,8 @@ object Producer {
         logger: E => Topic.URL => F[Unit],
         messageEncoder: Option[E => Array[Byte]],
         schema: Option[Schema[E]],
-        deduplication: Deduplication
+        deduplication: Deduplication,
+        unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     ) extends Settings[F, E] {
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
@@ -318,6 +341,10 @@ object Producer {
         copy(shardKey = _shardKey)
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
         copy(logger = _logger)
+      override def withUnsafeConf(
+          f: ProducerBuilder[Any] => ProducerBuilder[Any]
+      ): Settings[F, E] =
+        copy(unsafeOps = f)
       override protected[pulsar] def withMessageEncoder(
           f: E => Array[Byte]
       ): Settings[F, E] =
@@ -332,7 +359,8 @@ object Producer {
         _ => _ => Applicative[F].unit,
         None,
         None,
-        Deduplication.Disabled
+        Deduplication.Disabled,
+        identity
       )
   }
 
