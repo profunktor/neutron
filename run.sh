@@ -40,8 +40,11 @@ docker-compose exec -T pulsar bin/pulsar-admin namespaces create public/nope
 echo "Setting ALWAYS_INCOMPATIBLE schema compatibility strategy for the public/nope namespace"
 docker-compose exec -T pulsar bin/pulsar-admin namespaces set-schema-compatibility-strategy -c ALWAYS_INCOMPATIBLE public/nope
 
-echo "Enabling deduplication on topic 'dedup'"
+echo "Creating 'dedup' topic"
 docker-compose exec -T pulsar bin/pulsar-admin topics create persistent://public/default/dedup
+
+echo "Enabling deduplication on 'dedup' topic"
 docker-compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
+docker-compose exec -T pulsar bin/pulsar-admin topics get-deduplication dedup
 
 echo "Done"
