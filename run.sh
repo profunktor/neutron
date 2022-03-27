@@ -45,6 +45,5 @@ docker-compose exec -T pulsar bin/pulsar-admin topics create persistent://public
 
 echo "Enabling deduplication on 'dedup' topic"
 docker-compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
-docker-compose exec -T pulsar bin/pulsar-admin topics get-deduplication dedup
 
 echo "Done"
