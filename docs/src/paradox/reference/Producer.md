@@ -96,6 +96,32 @@ def shard(
 
 However, if you always want to publish messages according to a specific key, prefer to use the `withShardKey` option, described in the next section.
 
+## Deduplication
+
+Pulsar supports [deduplication](https://pulsar.apache.org/docs/en/concepts-messaging/#message-deduplication) at the broker level.
+
+In a nutshell, the deduplication mechanism is based on sequence ids, which can be set on every message on the underlying Java client.
+
+To make things smoother, Neutron internally manages the creation of new sequence ids via a typeclass.
+
+```scala mdoc
+trait SeqIdMaker[A] {
+  def next(prevId: Long, prevPayload: Option[A], payload: A): Long
+}
+```
+
+There is a default instance for any `A: Eq`, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a `prevId + 1` is used.
+
+This instance is usually good enough, as Pulsar only requires the next sequence id should be greater than the previous one. However, if for some reason you need a different implementation, you can write your own instance.
+
+To enable deduplication, we can use the following setting.
+
+```scala
+Producer.Settings[F, A]().withDeduplication
+```
+
+The [DeduplicationSuite](https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/DeduplicationSuite.scala) showcases this feature (also see the `run.sh` script, where deduplication is enabled at the topic level).
+
 ## Producer settings
 
 The producer constructor can also be customized with a few extra options. E.g.
