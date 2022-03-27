@@ -142,6 +142,7 @@ val settings =
    .withBatching(batching)
    .withShardKey(s => ShardKey.Of(s.hashCode.toString.getBytes))
    .withLogger(e => url => IO.println(s"Message: $e, URL: $url"))
+   .withUnsafeConf(_.autoUpdatePartitions(false))
 
 def custom(
     pulsar: Pulsar.T,

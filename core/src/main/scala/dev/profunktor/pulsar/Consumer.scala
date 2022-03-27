@@ -183,14 +183,18 @@ object Consumer {
           case s: Topic.Single => c.topic(s.url.value)
           case m: Topic.Multi  => c.topicsPattern(m.url.value.r.pattern)
         }
-        settings.deadLetterPolicy
-          .fold(z)(z.deadLetterPolicy)
-          .readCompacted(settings.readCompacted)
-          .subscriptionType(sub.`type`.pulsarSubscriptionType)
-          .subscriptionName(sub.name.value)
-          .subscriptionMode(sub.mode.pulsarSubscriptionMode)
-          .subscriptionInitialPosition(settings.initial)
-          .isAckReceiptEnabled(true)
+
+        settings.unsafeOps
+          .asInstanceOf[ConsumerBuilder[A] => ConsumerBuilder[A]](
+            settings.deadLetterPolicy
+              .fold(z)(z.deadLetterPolicy)
+              .readCompacted(settings.readCompacted)
+              .subscriptionType(sub.`type`.pulsarSubscriptionType)
+              .subscriptionName(sub.name.value)
+              .subscriptionMode(sub.mode.pulsarSubscriptionMode)
+              .subscriptionInitialPosition(settings.initial)
+              .isAckReceiptEnabled(true)
+          )
           .subscribeAsync()
       }
 
@@ -399,6 +403,7 @@ object Consumer {
     val messageDecoder: Option[Array[Byte] => F[E]]
     val decodingErrorHandler: Throwable => F[OnFailure]
     val schema: Option[Schema[E]]
+    val unsafeOps: ConsumerBuilder[Any] => ConsumerBuilder[Any]
 
     /**
       * The Subscription Initial Position. `Latest` by default.
@@ -441,6 +446,22 @@ object Consumer {
       * number of redeliveries, message will send to the Dead Letter Topic and acknowledged automatic.
       */
     def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E]
+
+    /**
+      * USE THIS ONE WITH CAUTION!
+      *
+      * In case Neutron does not yet support what you're looking for, there is a big chance
+      * the underlying Java client does.
+      *
+      * In this case, you can access the underlying `ConsumerBuilder` to customize it. E.g.
+      *
+      * {{{
+      * Settings[F, E]().withUnsafeConf(_.autoUpdatePartitions(true))
+      * }}}
+      *
+      * To be used with extreme caution!
+      */
+    def withUnsafeConf(f: ConsumerBuilder[Any] => ConsumerBuilder[Any]): Settings[F, E]
 
     // protected to ensure users don't set it and instead use the proper smart constructors
 
@@ -485,7 +506,8 @@ object Consumer {
         deadLetterPolicy: Option[DeadLetterPolicy],
         messageDecoder: Option[Array[Byte] => F[E]],
         decodingErrorHandler: Throwable => F[OnFailure],
-        schema: Option[Schema[E]]
+        schema: Option[Schema[E]],
+        unsafeOps: ConsumerBuilder[Any] => ConsumerBuilder[Any]
     ) extends Settings[F, E] {
       override def withInitialPosition(
           _initial: SubscriptionInitialPosition
@@ -503,6 +525,11 @@ object Consumer {
 
       override def withDeadLetterPolicy(policy: DeadLetterPolicy): Settings[F, E] =
         copy(deadLetterPolicy = Some(policy))
+
+      override def withUnsafeConf(
+          f: ConsumerBuilder[Any] => ConsumerBuilder[Any]
+      ): Settings[F, E] =
+        copy(unsafeOps = f)
 
       // protected to ensure users don't set it and instead use the proper smart constructors
       override protected[pulsar] def withMessageDecoder(
@@ -527,7 +554,8 @@ object Consumer {
       deadLetterPolicy = None,
       messageDecoder = None,
       decodingErrorHandler = _ => OnFailure.Raise.pure[F].widen,
-      schema = None
+      schema = None,
+      unsafeOps = identity
     )
   }
 

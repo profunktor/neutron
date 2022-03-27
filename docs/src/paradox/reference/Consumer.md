@@ -223,6 +223,7 @@ val settings =
    .withAutoUnsubscribe
    .withReadCompacted
    .withDeadLetterPolicy(deadLetterPolicy)
+   .withUnsafeConf(_.autoUpdatePartitions(false))
 
 def custom(
     pulsar: Pulsar.T,
