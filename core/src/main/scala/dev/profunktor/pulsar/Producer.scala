@@ -85,13 +85,13 @@ object Producer {
   sealed trait Deduplication
   object Deduplication {
     case object Disabled extends Deduplication
-    case object Enabled extends Deduplication
+    case class Enabled[A](seqIdMaker: SeqIdMaker[A]) extends Deduplication
   }
 
   /**
     * It creates a simple [[Producer]] with the supplied message encoder (schema support disabled).
     */
-  def make[F[_]: FutureLift: Parallel: Sync, E: SeqIdMaker](
+  def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       messageEncoder: E => Array[Byte]
@@ -102,7 +102,7 @@ object Producer {
     * It creates a simple [[Producer]] with the supplied message encoder (schema support disabled)
     * and settings.
     */
-  def make[F[_]: FutureLift: Parallel: Sync, E: SeqIdMaker](
+  def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       messageEncoder: E => Array[Byte],
@@ -115,7 +115,7 @@ object Producer {
   /**
     * It creates a simple [[Producer]] with the supplied Pulsar schema.
     */
-  def make[F[_]: FutureLift: Parallel: Sync, E: SeqIdMaker](
+  def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       schema: Schema[E]
@@ -125,7 +125,7 @@ object Producer {
   /**
     * It creates a simple [[Producer]] with the supplied Pulsar schema and settings
     */
-  def make[F[_]: FutureLift: Parallel: Sync, E: SeqIdMaker](
+  def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       schema: Schema[E],
@@ -138,7 +138,7 @@ object Producer {
   /**
     * It creates a simple [[Producer]] with the supplied settings.
     */
-  private def make[F[_]: FutureLift: Parallel: Sync, E: SeqIdMaker](
+  private def make[F[_]: FutureLift: Parallel: Sync, E](
       client: Pulsar.T,
       topic: Topic.Single,
       settings: Settings[F, E]
@@ -161,8 +161,8 @@ object Producer {
         builder: ProducerBuilder[A]
     ): ProducerBuilder[A] =
       settings.deduplication match {
-        case Deduplication.Disabled => builder
-        case Deduplication.Enabled  => builder.sendTimeout(0, TimeUnit.SECONDS)
+        case Deduplication.Disabled   => builder
+        case Deduplication.Enabled(_) => builder.sendTimeout(0, TimeUnit.SECONDS)
       }
 
     def unsafeConf[A](
@@ -202,9 +202,9 @@ object Producer {
             }
 
       settings.deduplication match {
-        case Deduplication.Enabled =>
+        case Deduplication.Enabled(seqIdMaker) =>
           prevMsgs.modify { prev =>
-            val nextId = SeqIdMaker[E].next(p.getLastSequenceId(), prev, msg)
+            val nextId = seqIdMaker.next(p.getLastSequenceId(), prev, msg)
             Some(msg) -> cont(_.sequenceId(nextId))
           }.flatten
         case Deduplication.Disabled =>
@@ -296,8 +296,15 @@ object Producer {
       * Remember to enable deduplication on the broker too.
       *
       * See: https://pulsar.apache.org/docs/en/cookbooks-deduplication/
+      *
+      * Example:
+      *
+      * {{{
+      *  Producer.Settings[IO, String]()
+      *     .withDeduplication(SeqIdMaker.fromEq[String])
+      * }}}
       */
-    def withDeduplication: Settings[F, E]
+    def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E]
 
     /**
       * USE THIS ONE WITH CAUTION!
@@ -335,8 +342,8 @@ object Producer {
     ) extends Settings[F, E] {
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withDeduplication: Settings[F, E] =
-        copy(deduplication = Deduplication.Enabled)
+      override def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E] =
+        copy(deduplication = Deduplication.Enabled(seqIdMaker))
       override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
         copy(shardKey = _shardKey)
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =

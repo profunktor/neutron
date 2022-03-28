@@ -102,7 +102,7 @@ Pulsar supports [deduplication](https://pulsar.apache.org/docs/en/concepts-messa
 
 In a nutshell, the deduplication mechanism is based on sequence ids, which can be set on every message on the underlying Java client.
 
-To make things smoother, Neutron internally manages the creation of new sequence ids via a typeclass.
+To make things smoother, Neutron internally manages the creation of new sequence ids via the following interface.
 
 ```scala mdoc
 trait SeqIdMaker[A] {
@@ -110,14 +110,18 @@ trait SeqIdMaker[A] {
 }
 ```
 
-There is a default instance for any `A: Eq`, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a `prevId + 1` is used.
+A default instance for any `A: Eq` can be constructed via the `fromEq` method, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a `prevId + 1` is used.
+
+```scala mdoc
+val seqIdMaker = SeqIdMaker.fromEq[String]
+```
 
 This instance is usually good enough, as Pulsar only requires the next sequence id should be greater than the previous one. However, if for some reason you need a different implementation, you can write your own instance.
 
 To enable deduplication, we can use the following setting.
 
 ```scala
-Producer.Settings[F, A]().withDeduplication
+Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
 ```
 
 The [DeduplicationSuite](https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/DeduplicationSuite.scala) showcases this feature (also see the `run.sh` script, where deduplication is enabled at the topic level).
