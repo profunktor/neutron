@@ -30,16 +30,18 @@ import cats.syntax.eq._
   * in the producer settings. It could be a typeclass but it makes things awkward
   * when deduplication is not required.
   *
-  * The best way to construct one is via `fromEq`, which gets you a default instance
-  * for any `A: Eq`.
+  * You can either build one via either the `fromEq` or the `instance` constructors.
   */
 trait SeqIdMaker[A] {
   def next(prevId: Long, prevPayload: Option[A], payload: A): Long
 }
 
 object SeqIdMaker {
-  def apply[A: SeqIdMaker]: SeqIdMaker[A] = implicitly
 
+  /**
+    * Creates an instance using the given Eq[A] instance to determine whether
+    * two values of type A are equal.
+    */
   def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
     def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
       prevPayload match {
@@ -47,4 +49,10 @@ object SeqIdMaker {
         case _                        => prevId + 1L
       }
   }
+
+  /**
+    * Creates an instance using the comparison function to determine whether
+    * two values of type A are equal.
+    */
+  def instance[A](f: (A, A) => Boolean): SeqIdMaker[A] = fromEq[A](Eq.instance(f))
 }
