@@ -94,7 +94,8 @@ object DeduplicationSuite extends IOSuite {
     }
 
     // FIXME: First run does not pass but it does on subsequent runs (only in CI build / fresh machine)
-    _test.void *> _test
+    import scala.concurrent.duration._
+    _test.void *> IO.sleep(3.seconds) *> _test
   }
 
 }
