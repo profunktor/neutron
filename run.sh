@@ -47,3 +47,6 @@ echo "Enabling deduplication on 'dedup' topic"
 docker-compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
 
 echo "Done"
+
+echo "Grepping standalone.conf for topicLevelPolicies"
+docker-compose exec -T pulsar cat conf/standalone.conf | grep 'topicLevelPolicies'
