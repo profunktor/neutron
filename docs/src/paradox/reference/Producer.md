@@ -120,8 +120,8 @@ This instance is usually good enough, as Pulsar only requires the next sequence 
 
 To enable deduplication, we can use the following setting.
 
-```scala
-Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
+```scala mdoc
+Producer.Settings[IO, String]().withDeduplication(seqIdMaker, "producer-name-1")
 ```
 
 The [DeduplicationSuite](https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/DeduplicationSuite.scala) showcases this feature (also see the `run.sh` script, where deduplication is enabled at the topic level).
