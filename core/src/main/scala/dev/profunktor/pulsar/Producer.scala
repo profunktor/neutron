@@ -217,9 +217,19 @@ object Producer {
     Resource
       .make {
         Sync[F].delay {
-          settings.schema match {
-            case Some(s) => configure(client.newProducer(s)).create().asLeft
-            case None    => configure(client.newProducer()).create().asRight
+          (settings.deduplication, settings.schema) match {
+            case (Deduplication.Enabled(_), Some(s)) =>
+              configure(client.newProducer(s).producerName("test-dedup-1"))
+                .create()
+                .asLeft
+            case (Deduplication.Disabled, Some(s)) =>
+              configure(client.newProducer(s)).create().asLeft
+            case (Deduplication.Enabled(_), None) =>
+              configure(client.newProducer().producerName("test-dedup-2"))
+                .create()
+                .asRight
+            case (Deduplication.Disabled, None) =>
+              configure(client.newProducer()).create().asRight
           }
         }
       }(p => FutureLift[F].futureLift(p.fold(_.closeAsync(), _.closeAsync())).void)
