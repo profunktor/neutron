@@ -209,12 +209,14 @@ object Producer {
 
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
-          prevMsgs.modify { prev =>
-            val nextId = seqIdMaker
-              .asInstanceOf[SeqIdMaker[E]]
-              .next(p.getLastSequenceId(), prev, msg)
-            Some(msg) -> cont(_.sequenceId(nextId))
-          }.flatten
+          prevMsgs
+            .modify { prev =>
+              val nextId = seqIdMaker
+                .asInstanceOf[SeqIdMaker[E]]
+                .next(p.getLastSequenceId(), prev, msg)
+              Some(msg) -> nextId
+            }
+            .flatMap(nextId => cont(_.sequenceId(nextId)))
         case Deduplication.Disabled =>
           cont(identity)
       }
