@@ -82,10 +82,10 @@ object Producer {
     case object Disabled extends Batching
   }
 
-  sealed trait Deduplication
+  sealed trait Deduplication[+A]
   object Deduplication {
-    case object Disabled extends Deduplication
-    case class Enabled[A](seqIdMaker: SeqIdMaker[A]) extends Deduplication
+    case object Disabled extends Deduplication[Nothing]
+    case class Enabled[A](seqIdMaker: SeqIdMaker[A]) extends Deduplication[A]
   }
 
   /**
@@ -204,7 +204,9 @@ object Producer {
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
           prevMsgs.modify { prev =>
-            val nextId = seqIdMaker.next(p.getLastSequenceId(), prev, msg)
+            val nextId = seqIdMaker
+              .asInstanceOf[SeqIdMaker[E]]
+              .next(p.getLastSequenceId(), prev, msg)
             Some(msg) -> cont(_.sequenceId(nextId))
           }.flatten
         case Deduplication.Disabled =>
@@ -286,7 +288,7 @@ object Producer {
     val logger: E => Topic.URL => F[Unit]
     val messageEncoder: Option[E => Array[Byte]]
     val schema: Option[Schema[E]]
-    val deduplication: Deduplication
+    val deduplication: Deduplication[E]
     val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
     def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
@@ -337,7 +339,7 @@ object Producer {
         logger: E => Topic.URL => F[Unit],
         messageEncoder: Option[E => Array[Byte]],
         schema: Option[Schema[E]],
-        deduplication: Deduplication,
+        deduplication: Deduplication[E],
         unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     ) extends Settings[F, E] {
       override def withBatching(_batching: Batching): Settings[F, E] =

@@ -28,7 +28,7 @@ jobs:
         uses: cachix/install-nix-action@v16
 
       - name: "Run neutron tests 🚀"
-        run: nix develop -c sbt 'IntegrationTest/test;test;makeSite;doc'
+        run: nix develop -c sbt 'IntegrationTest/test;++test;makeSite;doc'
 
       - name: "Shutting down Pulsar 🐳"
         run: docker-compose down
