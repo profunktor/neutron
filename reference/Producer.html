@@ -269,15 +269,17 @@ object MessageKey {
 <h2><a href="#deduplication" name="deduplication" class="anchor"><span class="anchor-link"></span></a>Deduplication</h2>
 <p>Pulsar supports <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#message-deduplication">deduplication</a> at the broker level.</p>
 <p>In a nutshell, the deduplication mechanism is based on sequence ids, which can be set on every message on the underlying Java client.</p>
-<p>To make things smoother, Neutron internally manages the creation of new sequence ids via a typeclass.</p>
+<p>To make things smoother, Neutron internally manages the creation of new sequence ids via the following interface.</p>
 <pre class="prettyprint"><code class="language-scala mdoc">trait SeqIdMaker[A] {
   def next(prevId: Long, prevPayload: Option[A], payload: A): Long
 }
 </code></pre>
-<p>There is a default instance for any <code>A: Eq</code>, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a <code>prevId + 1</code> is used.</p>
+<p>A default instance for any <code>A: Eq</code> can be constructed via the <code>fromEq</code> method, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a <code>prevId + 1</code> is used.</p>
+<pre class="prettyprint"><code class="language-scala mdoc">val seqIdMaker = SeqIdMaker.fromEq[String]
+</code></pre>
 <p>This instance is usually good enough, as Pulsar only requires the next sequence id should be greater than the previous one. However, if for some reason you need a different implementation, you can write your own instance.</p>
 <p>To enable deduplication, we can use the following setting.</p>
-<pre class="prettyprint"><code class="language-scala">Producer.Settings[F, A]().withDeduplication
+<pre class="prettyprint"><code class="language-scala">Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
 </code></pre>
 <p>The <a href="https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/DeduplicationSuite.scala">DeduplicationSuite</a> showcases this feature (also see the <code>run.sh</code> script, where deduplication is enabled at the topic level).</p>
 <h2><a href="#producer-settings" name="producer-settings" class="anchor"><span class="anchor-link"></span></a>Producer settings</h2>
