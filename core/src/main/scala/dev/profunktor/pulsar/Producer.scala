@@ -217,9 +217,15 @@ object Producer {
     Resource
       .make {
         Sync[F].delay {
-          settings.schema match {
-            case Some(s) => configure(client.newProducer(s)).create().asLeft
-            case None    => configure(client.newProducer()).create().asRight
+          (settings.name, settings.schema) match {
+            case (Some(n), Some(s)) =>
+              configure(client.newProducer(s).producerName(n)).create().asLeft
+            case (None, Some(s)) =>
+              configure(client.newProducer(s)).create().asLeft
+            case (Some(n), None) =>
+              configure(client.newProducer().producerName(n)).create().asRight
+            case (None, None) =>
+              configure(client.newProducer()).create().asRight
           }
         }
       }(p => FutureLift[F].futureLift(p.fold(_.closeAsync(), _.closeAsync())).void)
@@ -283,6 +289,7 @@ object Producer {
 
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
   sealed abstract class Settings[F[_], E] {
+    val name: Option[String]
     val batching: Batching
     val shardKey: E => ShardKey
     val logger: E => Topic.URL => F[Unit]
@@ -303,10 +310,10 @@ object Producer {
       *
       * {{{
       *  Producer.Settings[IO, String]()
-      *     .withDeduplication(SeqIdMaker.fromEq[String])
+      *     .withDeduplication(SeqIdMaker.fromEq[String], "producer-name-1")
       * }}}
       */
-    def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E]
+    def withDeduplication(seqIdMaker: SeqIdMaker[E], name: String): Settings[F, E]
 
     /**
       * USE THIS ONE WITH CAUTION!
@@ -334,6 +341,7 @@ object Producer {
     */
   object Settings {
     private case class SettingsImpl[F[_], E](
+        name: Option[String],
         batching: Batching,
         shardKey: E => ShardKey,
         logger: E => Topic.URL => F[Unit],
@@ -344,8 +352,11 @@ object Producer {
     ) extends Settings[F, E] {
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E] =
-        copy(deduplication = Deduplication.Enabled(seqIdMaker))
+      override def withDeduplication(
+          seqIdMaker: SeqIdMaker[E],
+          _name: String
+      ): Settings[F, E] =
+        copy(deduplication = Deduplication.Enabled(seqIdMaker), name = Some(_name))
       override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
         copy(shardKey = _shardKey)
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
@@ -363,13 +374,14 @@ object Producer {
     }
     def apply[F[_]: Applicative, E](): Settings[F, E] =
       SettingsImpl[F, E](
-        Batching.Disabled,
-        _ => ShardKey.Default,
-        _ => _ => Applicative[F].unit,
-        None,
-        None,
-        Deduplication.Disabled,
-        identity
+        name = None,
+        batching = Batching.Disabled,
+        shardKey = _ => ShardKey.Default,
+        logger = _ => _ => Applicative[F].unit,
+        messageEncoder = None,
+        schema = None,
+        deduplication = Deduplication.Disabled,
+        unsafeOps = identity
       )
   }
 

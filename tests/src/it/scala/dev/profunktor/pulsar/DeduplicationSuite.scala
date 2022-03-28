@@ -47,7 +47,7 @@ object DeduplicationSuite extends IOSuite {
   val pSettings =
     Producer
       .Settings[IO, String]()
-      .withDeduplication(SeqIdMaker.fromEq[String])
+      .withDeduplication(SeqIdMaker.fromEq[String], name = "dedup-prod-1")
 
   test("Producer deduplicates messages") { client =>
     val utf8 = PulsarSchema.utf8
