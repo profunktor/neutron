@@ -32,6 +32,7 @@ import org.apache.pulsar.client.api.{
   MessageId,
   Producer => JProducer,
   ProducerBuilder,
+  ProducerStats,
   Schema,
   TypedMessageBuilder
 }
@@ -72,6 +73,11 @@ trait Producer[F[_], E] {
     * Same as `send(msg:E,properties:Map[String, String])` but it discards its output.
     */
   def send_(msg: E, properties: Map[String, String]): F[Unit]
+
+  /**
+    * Retrieves the `ProducerStats` synchronously (blocking call).
+    */
+  def stats: F[ProducerStats]
 }
 
 object Producer {
@@ -255,6 +261,8 @@ object Producer {
             override def send_(msg: E, properties: Map[String, String]): F[Unit] =
               send(msg, properties).void
 
+            override def stats: F[ProducerStats] =
+              Sync[F].blocking(p.getStats())
           }
 
         case (Right(p), prevMsgs) =>
@@ -282,6 +290,9 @@ object Producer {
 
               override def send_(msg: E, properties: Map[String, String]): F[Unit] =
                 send(msg, properties).void
+
+              override def stats: F[ProducerStats] =
+                Sync[F].blocking(p.getStats())
             }
           }
       }

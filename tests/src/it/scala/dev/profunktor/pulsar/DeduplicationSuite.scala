@@ -21,6 +21,7 @@ import dev.profunktor.pulsar.schema.PulsarSchema
 import cats.effect._
 import cats.syntax.all._
 import fs2.Stream
+import org.apache.pulsar.client.api.ProducerStats
 import weaver.IOSuite
 
 object DeduplicationSuite extends IOSuite {
@@ -49,6 +50,17 @@ object DeduplicationSuite extends IOSuite {
       .Settings[IO, String]()
       .withDeduplication(SeqIdMaker.fromEq[String], name = "dedup-prod-1")
 
+  def showStats(s: ProducerStats): IO[Unit] = IO.println {
+    s"""
+       ++++++++++++++++++++++++++++++++
+       - NumMsgsSent: ${s.getNumMsgsSent()}
+       - NumSendFail: ${s.getNumSendFailed()}
+       - NumAcksRcvd: ${s.getNumAcksReceived()}
+       - SendMsgRate: ${s.getSendMsgsRate()}
+       ++++++++++++++++++++++++++++++++
+     """
+  }
+
   test("Producer deduplicates messages") { client =>
     val utf8 = PulsarSchema.utf8
 
@@ -58,7 +70,7 @@ object DeduplicationSuite extends IOSuite {
         c <- Consumer.make[IO, String](client, topic, sub, utf8)
       } yield c -> p
 
-    val _test = (IO.ref(List.empty[String]), IO.deferred[Unit]).tupled.flatMap {
+    (IO.ref(List.empty[String]), IO.deferred[Unit]).tupled.flatMap {
       case (ref, latch) =>
         Stream
           .resource(res)
@@ -68,6 +80,7 @@ object DeduplicationSuite extends IOSuite {
                 c.subscribe.evalMap {
                   case Consumer.Message(id, _, _, payload) =>
                     for {
+                      _ <- IO.println(payload)
                       _ <- ref.update(_ :+ payload)
                       _ <- c.ack(id)
                       _ <- latch.complete(()).whenA(payload == "c")
@@ -82,6 +95,7 @@ object DeduplicationSuite extends IOSuite {
 
               produce
                 .concurrently(consume)
+                .evalTap(_ => p.stats >>= showStats)
                 .drain
                 .append {
                   Stream.eval(ref.get).map { e =>
@@ -92,10 +106,6 @@ object DeduplicationSuite extends IOSuite {
           .compile
           .lastOrError
     }
-
-    // FIXME: First run does not pass but it does on subsequent runs (only in CI build / fresh machine)
-    import scala.concurrent.duration._
-    _test.void *> IO.sleep(3.seconds) *> _test
   }
 
 }
