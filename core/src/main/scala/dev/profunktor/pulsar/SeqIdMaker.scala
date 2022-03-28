@@ -26,7 +26,12 @@ import cats.syntax.eq._
   * - A previous payload (message).
   * - A new payload.
   *
-  * There is a default instance for any `A: Eq`.
+  * An instance has to be contructed explicitly and pass it to `withDeduplication`
+  * in the producer settings. It could be a typeclass but it makes things awkward
+  * when deduplication is not required.
+  *
+  * The best way to construct one is via `fromEq`, which gets you a default instance
+  * for any `A: Eq`.
   */
 trait SeqIdMaker[A] {
   def next(prevId: Long, prevPayload: Option[A], payload: A): Long
@@ -35,7 +40,7 @@ trait SeqIdMaker[A] {
 object SeqIdMaker {
   def apply[A: SeqIdMaker]: SeqIdMaker[A] = implicitly
 
-  implicit def forEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
+  def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
     def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
       prevPayload match {
         case Some(p) if p === payload => prevId
