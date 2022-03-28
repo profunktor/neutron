@@ -216,7 +216,10 @@ object Producer {
                 .next(p.getLastSequenceId(), prev, msg)
               Some(msg) -> nextId
             }
-            .flatMap(nextId => cont(_.sequenceId(nextId)))
+            .flatMap(
+              nextId =>
+                Sync[F].delay(println(s"SEQ ID: $nextId")) *> cont(_.sequenceId(nextId))
+            )
         case Deduplication.Disabled =>
           cont(identity)
       }
