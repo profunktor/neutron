@@ -10,5 +10,6 @@ services:
     command: >
       /bin/bash -c "bin/pulsar standalone"
     volumes:
+      - ./pulsarconf/broker.conf:/pulsar/conf/broker.conf
       - ./pulsarconf/standalone.conf:/pulsar/conf/standalone.conf
       - ./pulsardata:/pulsar/data
