@@ -80,7 +80,7 @@ object DeduplicationSuite extends IOSuite {
                 c.subscribe.evalMap {
                   case Consumer.Message(id, _, _, payload) =>
                     for {
-                      _ <- IO.println(payload)
+                      _ <- IO.println(s"RECV: $payload")
                       _ <- ref.update(_ :+ payload)
                       _ <- c.ack(id)
                       _ <- latch.complete(()).whenA(payload == "c")
@@ -95,7 +95,7 @@ object DeduplicationSuite extends IOSuite {
 
               produce
                 .concurrently(consume)
-                .evalTap(_ => p.stats >>= showStats)
+                //.evalTap(_ => p.stats >>= showStats)
                 .drain
                 .append {
                   Stream.eval(ref.get).map { e =>

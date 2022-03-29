@@ -198,13 +198,15 @@ object Producer {
       def cont(f: TypedMessageBuilder[A] => TypedMessageBuilder[A]) =
         settings.logger(msg)(topic.url) &>
             FutureLift[F].futureLift {
-              f(
+              val message = f(
                 p.newMessage()
                   .value(_msg)
                   .properties(properties.asJava)
                   .withShardKey(settings.shardKey(msg))
                   .withMessageKey(key)
-              ).sendAsync()
+              )
+              //println(s"SEND: $message \n")
+              message.sendAsync()
             }
 
       settings.deduplication match {
