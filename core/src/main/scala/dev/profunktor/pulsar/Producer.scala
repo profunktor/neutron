@@ -198,36 +198,30 @@ object Producer {
       def cont(f: TypedMessageBuilder[A] => TypedMessageBuilder[A]) =
         settings.logger(msg)(topic.url) &>
             FutureLift[F].futureLift {
-              val message = f(
+              f(
                 p.newMessage()
                   .value(_msg)
                   .properties(properties.asJava)
                   .withShardKey(settings.shardKey(msg))
                   .withMessageKey(key)
-              )
-              //println(s"SEND: $message \n")
-              message.sendAsync()
+              ).sendAsync()
             }
 
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
-          FutureLift[F].semaphore.flatMap {
-            _.permit.surround {
-              prevMsgs
-                .modify { prev =>
-                  val nextId = seqIdMaker
-                    .asInstanceOf[SeqIdMaker[E]]
-                    .next(p.getLastSequenceId(), prev, msg)
-                  Some(msg) -> nextId
-                }
-                .flatMap(
-                  nextId =>
-                    Sync[F].delay(println(s"SENT SEQ ID: $nextId")) *> cont(
-                          _.sequenceId(nextId)
-                        )
-                )
+          prevMsgs
+            .modify { prev =>
+              val nextId = seqIdMaker
+                .asInstanceOf[SeqIdMaker[E]]
+                .next(p.getLastSequenceId(), prev, msg)
+              Some(msg) -> nextId
             }
-          }
+            .flatMap(
+              nextId =>
+                Sync[F].delay(println(s"SENT SEQ ID: $nextId")) *> cont(
+                      _.sequenceId(nextId)
+                    )
+            )
         case Deduplication.Disabled =>
           cont(identity)
       }
