@@ -43,11 +43,13 @@ object SeqIdMaker {
     * two values of type A are equal.
     */
   def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
-    def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
+    def next(prevId: Long, prevPayload: Option[A], payload: A): Long = {
+      val _id = if (prevId == -1L) 0L else prevId // can be negative on first message
       prevPayload match {
-        case Some(p) if p === payload => prevId
-        case _                        => prevId + 1L
+        case Some(p) if p === payload => _id
+        case _                        => _id + 1L
       }
+    }
   }
 
   /**
