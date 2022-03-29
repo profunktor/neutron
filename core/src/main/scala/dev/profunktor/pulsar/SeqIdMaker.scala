@@ -22,7 +22,7 @@ import cats.syntax.eq._
 /**
   * Dictates how `sequenceId`s (used for deduplication) are generated based on:
   *
-  * - A previous sequence id.
+  * - A previous sequence id (can be negative on first run).
   * - A previous payload (message).
   * - A new payload.
   *
@@ -44,7 +44,7 @@ object SeqIdMaker {
     */
   def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
     def next(prevId: Long, prevPayload: Option[A], payload: A): Long = {
-      val _id = if (prevId == -1L) 0L else prevId // can be negative on first message
+      val _id = if (prevId == -1L) 0L else prevId
       prevPayload match {
         case Some(p) if p === payload => _id
         case _                        => _id + 1L
