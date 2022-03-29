@@ -20,8 +20,11 @@ import java.util.concurrent._
 
 import cats.effect.kernel.Async
 
+import cats.effect.std.Semaphore
+
 private[pulsar] trait FutureLift[F[_]] {
   def futureLift[A](fa: => CompletableFuture[A]): F[A]
+  def semaphore: F[Semaphore[F]]
 }
 
 private[pulsar] object FutureLift {
@@ -31,5 +34,6 @@ private[pulsar] object FutureLift {
     new FutureLift[F] {
       def futureLift[A](fa: => CompletableFuture[A]): F[A] =
         Async[F].fromCompletableFuture(Async[F].delay(fa))
+      def semaphore: F[Semaphore[F]] = Semaphore[F](1)
     }
 }

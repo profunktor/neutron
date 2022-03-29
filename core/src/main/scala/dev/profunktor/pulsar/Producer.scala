@@ -211,17 +211,23 @@ object Producer {
 
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
-          prevMsgs
-            .modify { prev =>
-              val nextId = seqIdMaker
-                .asInstanceOf[SeqIdMaker[E]]
-                .next(p.getLastSequenceId(), prev, msg)
-              Some(msg) -> nextId
+          FutureLift[F].semaphore.flatMap {
+            _.permit.surround {
+              prevMsgs
+                .modify { prev =>
+                  val nextId = seqIdMaker
+                    .asInstanceOf[SeqIdMaker[E]]
+                    .next(p.getLastSequenceId(), prev, msg)
+                  Some(msg) -> nextId
+                }
+                .flatMap(
+                  nextId =>
+                    Sync[F].delay(println(s"SENT SEQ ID: $nextId")) *> cont(
+                          _.sequenceId(nextId)
+                        )
+                )
             }
-            .flatMap(
-              nextId =>
-                Sync[F].delay(println(s"SEQ ID: $nextId")) *> cont(_.sequenceId(nextId))
-            )
+          }
         case Deduplication.Disabled =>
           cont(identity)
       }
