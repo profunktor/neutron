@@ -80,7 +80,6 @@ object DeduplicationSuite extends IOSuite {
                 c.subscribe.evalMap {
                   case Consumer.Message(id, _, _, payload) =>
                     for {
-                      _ <- IO.println(s"RECV: $payload")
                       _ <- ref.update(_ :+ payload)
                       _ <- c.ack(id)
                       _ <- latch.complete(()).whenA(payload == "c")

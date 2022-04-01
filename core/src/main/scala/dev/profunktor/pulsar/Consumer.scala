@@ -92,8 +92,6 @@ private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
           FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
             val e = m.getValue()
 
-            println(s"RECV SEQ ID: ${m.getSequenceId()}")
-
             settings.logger(e)(Topic.URL(m.getTopicName)) >>
               ack(m.getMessageId)
                 .whenA(autoAck)
@@ -127,8 +125,6 @@ private abstract class ByteConsumer[F[_]: FutureLift: Sync, E](
         Stream.repeatEval {
           def go: F[Consumer.Message[E]] =
             FutureLift[F].futureLift(c.receiveAsync()).flatMap { m =>
-              println(s"RECV SEQ ID: ${m.getSequenceId()}")
-
               dec(m.getValue())
                 .flatMap { e =>
                   settings.logger(e)(Topic.URL(m.getTopicName)) >>
