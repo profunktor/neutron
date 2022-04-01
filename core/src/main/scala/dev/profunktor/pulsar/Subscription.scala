@@ -44,9 +44,11 @@ object Subscription {
   }
 
   object Mode {
+    // Make the subscription to be backed by a durable cursor that will retain messages and persist the current position
     case object Durable extends Mode {
       override def pulsarSubscriptionMode: SubscriptionMode = SubscriptionMode.Durable
     }
+    // Lightweight subscription mode that doesn't have a durable cursor associated
     case object NonDurable extends Mode {
       override def pulsarSubscriptionMode: SubscriptionMode = SubscriptionMode.NonDurable
     }
