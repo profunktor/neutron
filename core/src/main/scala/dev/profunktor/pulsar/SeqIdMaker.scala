@@ -22,7 +22,7 @@ import cats.syntax.eq._
 /**
   * Dictates how `sequenceId`s (used for deduplication) are generated based on:
   *
-  * - A previous sequence id.
+  * - A previous sequence id (-1 if there are no previous messages).
   * - A previous payload (message).
   * - A new payload.
   *
