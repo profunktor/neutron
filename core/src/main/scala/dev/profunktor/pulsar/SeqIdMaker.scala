@@ -46,7 +46,7 @@ object SeqIdMaker {
     def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
       prevPayload match {
         case Some(p) if p === payload => prevId
-        case _                        => prevId + 5L
+        case _                        => prevId + 1L
       }
   }
 
