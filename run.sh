@@ -46,4 +46,15 @@ docker-compose exec -T pulsar bin/pulsar-admin topics create persistent://public
 echo "Enabling deduplication on 'dedup' topic"
 docker-compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
 
+#echo "Running deduplication checks"
+#docker-compose exec -T pulsar bin/pulsar-admin topics get-deduplication persistent://public/default/dedup
+
+#echo "standalone.conf values"
+#docker-compose exec -T pulsar cat conf/standalone.conf | grep 'topicLevelPolicies'
+#docker-compose exec -T pulsar cat conf/standalone.conf | grep 'systemTopic'
+
+#echo "broker.conf values"
+#docker-compose exec -T pulsar cat conf/broker.conf | grep 'topicLevelPolicies'
+#docker-compose exec -T pulsar cat conf/broker.conf | grep 'systemTopic'
+
 echo "Done"

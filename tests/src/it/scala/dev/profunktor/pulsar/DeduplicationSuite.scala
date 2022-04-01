@@ -21,6 +21,7 @@ import dev.profunktor.pulsar.schema.PulsarSchema
 import cats.effect._
 import cats.syntax.all._
 import fs2.Stream
+import org.apache.pulsar.client.api.ProducerStats
 import weaver.IOSuite
 
 object DeduplicationSuite extends IOSuite {
@@ -45,7 +46,20 @@ object DeduplicationSuite extends IOSuite {
   val utf8 = PulsarSchema.utf8
 
   val pSettings =
-    Producer.Settings[IO, String]().withDeduplication
+    Producer
+      .Settings[IO, String]()
+      .withDeduplication(SeqIdMaker.fromEq[String], name = "dedup-prod-1")
+
+  def showStats(s: ProducerStats): IO[Unit] = IO.println {
+    s"""
+       ++++++++++++++++++++++++++++++++
+       - NumMsgsSent: ${s.getNumMsgsSent()}
+       - NumSendFail: ${s.getNumSendFailed()}
+       - NumAcksRcvd: ${s.getNumAcksReceived()}
+       - SendMsgRate: ${s.getSendMsgsRate()}
+       ++++++++++++++++++++++++++++++++
+     """
+  }
 
   test("Producer deduplicates messages") { client =>
     val utf8 = PulsarSchema.utf8
@@ -80,6 +94,7 @@ object DeduplicationSuite extends IOSuite {
 
               produce
                 .concurrently(consume)
+                //.evalTap(_ => p.stats >>= showStats)
                 .drain
                 .append {
                   Stream.eval(ref.get).map { e =>

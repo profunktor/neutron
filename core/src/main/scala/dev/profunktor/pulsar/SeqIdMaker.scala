@@ -22,24 +22,37 @@ import cats.syntax.eq._
 /**
   * Dictates how `sequenceId`s (used for deduplication) are generated based on:
   *
-  * - A previous sequence id.
+  * - A previous sequence id (-1 if there are no previous messages).
   * - A previous payload (message).
   * - A new payload.
   *
-  * There is a default instance for any `A: Eq`.
+  * An instance has to be contructed explicitly and pass it to `withDeduplication`
+  * in the producer settings. It could be a typeclass but it makes things awkward
+  * when deduplication is not required.
+  *
+  * You can either build one via either the `fromEq` or the `instance` constructors.
   */
 trait SeqIdMaker[A] {
   def next(prevId: Long, prevPayload: Option[A], payload: A): Long
 }
 
 object SeqIdMaker {
-  def apply[A: SeqIdMaker]: SeqIdMaker[A] = implicitly
 
-  implicit def forEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
+  /**
+    * Creates an instance using the given Eq[A] instance to determine whether
+    * two values of type A are equal.
+    */
+  def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
     def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
       prevPayload match {
         case Some(p) if p === payload => prevId
         case _                        => prevId + 1L
       }
   }
+
+  /**
+    * Creates an instance using the comparison function to determine whether
+    * two values of type A are equal.
+    */
+  def instance[A](f: (A, A) => Boolean): SeqIdMaker[A] = fromEq[A](Eq.instance(f))
 }
