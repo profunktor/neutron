@@ -1,6 +1,6 @@
 import Dependencies._
 
-val scala2 = "2.13.6"
+val scala2 = "2.13.8"
 val scala3 = "3.1.1"
 
 ThisBuild / scalaVersion := scala2
@@ -28,6 +28,7 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 
 Compile / run / fork := true
 Global / semanticdbEnabled := true
+Global / semanticdbVersion := scalafixSemanticdb.revision
 
 def avro4sDep(scalaVersion: String, scope: String = Provided.toString): List[ModuleID] =
   CrossVersion.partialVersion(scalaVersion) match {
