@@ -1,6 +1,6 @@
 import Dependencies._
 
-val scala2 = "2.13.6"
+val scala2 = "2.13.8"
 val scala3 = "3.1.1"
 
 ThisBuild / scalaVersion := scala2
@@ -38,11 +38,12 @@ def avro4sDep(scalaVersion: String, scope: String = Provided.toString): List[Mod
     case _ => Nil
   }
 
-def kindProjectorDep(scalaVersion: String): List[ModuleID] =
+def compilerPluginsDep(scalaVersion: String): List[ModuleID] =
   CrossVersion.partialVersion(scalaVersion) match {
     case Some((2, _)) =>
       List(
-        CompilerPlugins.kindProjector
+        CompilerPlugins.kindProjector,
+        CompilerPlugins.semanticDB
       )
     case _ => Nil
   }
@@ -67,7 +68,7 @@ lazy val `neutron-core` = (project in file("core"))
           Libraries.fs2,
           Libraries.pulsar,
           Libraries.weaverCats % Test
-        ) ++ kindProjectorDep(scalaVersion.value)
+        ) ++ compilerPluginsDep(scalaVersion.value)
   )
 
 lazy val `neutron-circe` = (project in file("circe"))
@@ -106,7 +107,7 @@ lazy val tests = (project in file("tests"))
           Libraries.circeGeneric % "it,test",
           Libraries.circeParser  % "it,test",
           Libraries.weaverCats   % "it,test"
-        ) ++ avro4sDep(scalaVersion.value, "it,test") ++ kindProjectorDep(
+        ) ++ avro4sDep(scalaVersion.value, "it,test") ++ compilerPluginsDep(
               scalaVersion.value
             )
   )

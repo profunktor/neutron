@@ -14,6 +14,7 @@ object Dependencies {
 
     val kindProjector   = "0.13.2"
     val organizeImports = "0.5.0"
+    val semanticDB      = "4.5.2"
   }
 
   object Libraries {
@@ -42,6 +43,10 @@ object Dependencies {
   object CompilerPlugins {
     val kindProjector = compilerPlugin(
       "org.typelevel" %% "kind-projector" % V.kindProjector cross CrossVersion.full
+    )
+
+    val semanticDB = compilerPlugin(
+      "org.scalameta" % "semanticdb-scalac" % V.semanticDB cross CrossVersion.full
     )
   }
 
