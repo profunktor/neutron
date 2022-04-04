@@ -48,7 +48,7 @@ object DeduplicationSuite extends IOSuite {
   val pSettings =
     Producer
       .Settings[IO, String]()
-      .withDeduplication(SeqIdMaker.fromEq[String], name = "dedup-prod-1")
+      .withDeduplication(SeqIdMaker.fromEq[String])
 
   def showStats(s: ProducerStats): IO[Unit] = IO.println {
     s"""
