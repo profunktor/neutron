@@ -274,6 +274,7 @@ object Producer {
     val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
     def withMessageKey(_msgKey: E => MessageKey): Settings[F, E]
+    def withName(_name: String): Settings[F, E]
     def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
     def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
 
@@ -286,10 +287,10 @@ object Producer {
       *
       * {{{
       *  Producer.Settings[IO, String]()
-      *     .withDeduplication(SeqIdMaker.fromEq[String], "producer-name-1")
+      *     .withDeduplication(SeqIdMaker.fromEq[String])
       * }}}
       */
-    def withDeduplication(seqIdMaker: SeqIdMaker[E], name: String): Settings[F, E]
+    def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E]
 
     /**
       * USE THIS ONE WITH CAUTION!
@@ -327,13 +328,12 @@ object Producer {
         deduplication: Deduplication[E],
         unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     ) extends Settings[F, E] {
+      override def withName(_name: String): Settings[F, E] =
+        copy(name = Some(_name))
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withDeduplication(
-          seqIdMaker: SeqIdMaker[E],
-          _name: String
-      ): Settings[F, E] =
-        copy(deduplication = Deduplication.Enabled(seqIdMaker), name = Some(_name))
+      override def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E] =
+        copy(deduplication = Deduplication.Enabled(seqIdMaker))
       override def withMessageKey(_msgKey: E => MessageKey): Settings[F, E] =
         copy(messageKey = _msgKey)
       override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
