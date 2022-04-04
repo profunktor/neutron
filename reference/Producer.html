@@ -156,7 +156,6 @@ profunktor/neutron
   <ul>
     <li><a href="../reference/Producer.html#creating-a-producer" class="header">Creating a Producer</a></li>
     <li><a href="../reference/Producer.html#publishing-a-message" class="header">Publishing a message</a></li>
-    <li><a href="../reference/Producer.html#sharding" class="header">Sharding</a></li>
     <li><a href="../reference/Producer.html#deduplication" class="header">Deduplication</a></li>
     <li><a href="../reference/Producer.html#producer-settings" class="header">Producer settings</a></li>
   </ul></li>
@@ -184,7 +183,6 @@ profunktor/neutron
   <ul>
     <li><a href="../reference/Producer.html#creating-a-producer" class="header">Creating a Producer</a></li>
     <li><a href="../reference/Producer.html#publishing-a-message" class="header">Publishing a message</a></li>
-    <li><a href="../reference/Producer.html#sharding" class="header">Sharding</a></li>
     <li><a href="../reference/Producer.html#deduplication" class="header">Deduplication</a></li>
     <li><a href="../reference/Producer.html#producer-settings" class="header">Producer settings</a></li>
   </ul></li>
@@ -200,14 +198,12 @@ profunktor/neutron
 <h1><a href="#producer" name="producer" class="anchor"><span class="anchor-link"></span></a>Producer</h1>
 <p>A <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#producers">producer</a> is a process that attaches to a topic and publishes messages to a Pulsar broker.</p>
 <p>Neutron models it via a tagless algebra.</p>
-<pre class="prettyprint"><code class="language-scala mdoc:compile-only">import dev.profunktor.pulsar._
-import org.apache.pulsar.client.api.MessageId
+<pre class="prettyprint"><code class="language-scala mdoc:compile-only">import org.apache.pulsar.client.api.{ MessageId, ProducerStats }
 
 trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
-  def send(msg: E, key: MessageKey): F[MessageId]
   def send(msg: E, properties: Map[String, String]): F[MessageId]
-  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
+  def stats: F[ProducerStats]
 }
 </code></pre>
 <p>As well as the <code>send_</code> equivalent that discards the <code>MessageId</code> and returns <code>F[Unit]</code>. We will expand on its methods in the next few sections.</p>
@@ -248,24 +244,6 @@ def creation(
 ): IO[Unit] =
   producer.send_(&quot;some-message&quot;)
 </code></pre>
-<h2><a href="#sharding" name="sharding" class="anchor"><span class="anchor-link"></span></a>Sharding</h2>
-<p>The other two variations also take a <code>MessageKey</code> as argument, which is used for distributing messages.</p>
-<pre class="prettyprint"><code class="language-scala mdoc:compile-only">sealed trait MessageKey
-object MessageKey {
-  final case class Of(value: String) extends MessageKey
-  case object Empty extends MessageKey
-}
-</code></pre>
-<p>This could be useful if you want to publish a message to a specific shard at some point.</p>
-<pre class="prettyprint"><code class="language-scala mdoc">def shard(
-    producer: Producer[IO, String]
-): IO[Unit] = {
-  val msg = &quot;some-message&quot;
-  val key = MessageKey.Of(msg.hashCode.toString)
-  producer.send_(msg, key)
-}
-</code></pre>
-<p>However, if you always want to publish messages according to a specific key, prefer to use the <code>withShardKey</code> option, described in the next section.</p>
 <h2><a href="#deduplication" name="deduplication" class="anchor"><span class="anchor-link"></span></a>Deduplication</h2>
 <p>Pulsar supports <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#message-deduplication">deduplication</a> at the broker level.</p>
 <p>In a nutshell, the deduplication mechanism is based on sequence ids, which can be set on every message on the underlying Java client.</p>
@@ -297,6 +275,7 @@ val encoder: String =&gt; Array[Byte] =
 val settings =
   Producer.Settings[IO, String]()
    .withBatching(batching)
+   .withMessageKey(s =&gt; MessageKey.Of(s.hashCode.toString))
    .withShardKey(s =&gt; ShardKey.Of(s.hashCode.toString.getBytes))
    .withLogger(e =&gt; url =&gt; IO.println(s&quot;Message: $e, URL: $url&quot;))
    .withUnsafeConf(_.autoUpdatePartitions(false))
@@ -307,8 +286,8 @@ def custom(
 ): Resource[IO, Producer[IO, String]] =
   Producer.make(pulsar, topic, encoder, settings)
 </code></pre>
-<p>The <code>withShardKey</code> option is quite useful when we want to publish messages based on certain property of your messages, e.g. an <code>EventId</code>. This applies when you use it together with <code>KeyShared</code> subscriptions, on the consumer side.</p>
-<p>When a <code>ShardKey</code> is defined, we don&rsquo;t need to provide a <code>MessageKey</code> manually and can just use the simple <code>send</code> and <code>send_</code> methods that take a single argument: the payload.</p>
+<p>The <code>withShardKey</code> option is quite useful when we want to publish messages based on certain property of your messages, e.g. an <code>EventId</code>. This applies when you use it together with <code>KeyShared</code> subscriptions, on the consumer side. Internally, this sets the <code>orderingKey</code> of every message.</p>
+<p>On the other hand, the <code>withMessageKey</code> option sets the &ldquo;partitioning key&rdquo; of every message, used for compacted topics. Also bear in mind that if you use a <code>KeyShared</code> subscription but don&rsquo;t set the <code>orderingKey</code> (via <code>withShardKey</code>), the default <code>MessageKey</code> will be used.</p>
 </div>
 <div>
 <a href="https://github.com/profunktor/neutron/tree/master/docs/src/paradox/reference/Producer.md" title="Edit this page" class="md-source-file md-edit">
