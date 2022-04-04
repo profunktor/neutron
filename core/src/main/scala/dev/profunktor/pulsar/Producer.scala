@@ -45,29 +45,14 @@ trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
 
   /**
-    * Sends a message associated with a `key` asynchronously.
-    */
-  def send(msg: E, key: MessageKey): F[MessageId]
-
-  /**
     * Sends a message associated with a set of properties asynchronously.
     */
   def send(msg: E, properties: Map[String, String]): F[MessageId]
 
   /**
-    * Sends a message associated with a `key` and a set of properties asynchronously.
-    */
-  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
-
-  /**
     * Same as [[send(msg:E)*]] but it discards its output.
     */
   def send_(msg: E): F[Unit]
-
-  /**
-    * Same as `send(msg:E,key:MessageKey)` but it discards its output.
-    */
-  def send_(msg: E, key: MessageKey): F[Unit]
 
   /**
     * Same as `send(msg:E,properties:Map[String, String])` but it discards its output.
@@ -189,7 +174,6 @@ object Producer {
         p: JProducer[A],
         msg: E,
         enc: E => A,
-        key: MessageKey,
         properties: Map[String, String],
         prevMsgs: Ref[F, Option[E]]
     ): F[MessageId] = {
@@ -203,7 +187,7 @@ object Producer {
                   .value(_msg)
                   .properties(properties.asJava)
                   .withShardKey(settings.shardKey(msg))
-                  .withMessageKey(key)
+                  .withMessageKey(settings.messageKey(msg))
               ).sendAsync()
             }
 
@@ -239,24 +223,12 @@ object Producer {
       .map {
         case (Left(p), prevMsgs) =>
           new Producer[F, E] {
-            override def send(
-                msg: E,
-                key: MessageKey,
-                properties: Map[String, String]
-            ): F[MessageId] =
-              sendMessage[E](p, msg, identity, key, properties, prevMsgs)
+            override def send(msg: E): F[MessageId] = send(msg, Map.empty)
 
-            override def send(msg: E, key: MessageKey): F[MessageId] =
-              send(msg, key, Map.empty)
-
-            override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
-
-            override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
-
-            override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+            override def send_(msg: E): F[Unit] = send(msg).void
 
             override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-              send(msg, MessageKey.Empty, properties)
+              sendMessage[E](p, msg, identity, properties, prevMsgs)
 
             override def send_(msg: E, properties: Map[String, String]): F[Unit] =
               send(msg, properties).void
@@ -272,21 +244,12 @@ object Producer {
             )
           ) { enc =>
             new Producer[F, E] {
-              override def send(msg: E, key: MessageKey, properties: Map[String, String])
-                  : F[MessageId] =
-                sendMessage[Array[Byte]](p, msg, enc, key, properties, prevMsgs)
+              override def send(msg: E): F[MessageId] = send(msg, Map.empty)
 
-              override def send(msg: E, key: MessageKey): F[MessageId] =
-                send(msg, key, Map.empty)
-
-              override def send_(msg: E, key: MessageKey): F[Unit] = send(msg, key).void
-
-              override def send(msg: E): F[MessageId] = send(msg, MessageKey.Empty)
-
-              override def send_(msg: E): F[Unit] = send(msg, MessageKey.Empty).void
+              override def send_(msg: E): F[Unit] = send(msg).void
 
               override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-                send(msg, MessageKey.Empty, properties)
+                sendMessage[Array[Byte]](p, msg, enc, properties, prevMsgs)
 
               override def send_(msg: E, properties: Map[String, String]): F[Unit] =
                 send(msg, properties).void
@@ -302,6 +265,7 @@ object Producer {
   sealed abstract class Settings[F[_], E] {
     val name: Option[String]
     val batching: Batching
+    val messageKey: E => MessageKey
     val shardKey: E => ShardKey
     val logger: E => Topic.URL => F[Unit]
     val messageEncoder: Option[E => Array[Byte]]
@@ -309,6 +273,7 @@ object Producer {
     val deduplication: Deduplication[E]
     val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
+    def withMessageKey(_msgKey: E => MessageKey): Settings[F, E]
     def withShardKey(_shardKey: E => ShardKey): Settings[F, E]
     def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
 
@@ -354,6 +319,7 @@ object Producer {
     private case class SettingsImpl[F[_], E](
         name: Option[String],
         batching: Batching,
+        messageKey: E => MessageKey,
         shardKey: E => ShardKey,
         logger: E => Topic.URL => F[Unit],
         messageEncoder: Option[E => Array[Byte]],
@@ -368,6 +334,8 @@ object Producer {
           _name: String
       ): Settings[F, E] =
         copy(deduplication = Deduplication.Enabled(seqIdMaker), name = Some(_name))
+      override def withMessageKey(_msgKey: E => MessageKey): Settings[F, E] =
+        copy(messageKey = _msgKey)
       override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
         copy(shardKey = _shardKey)
       override def withLogger(_logger: E => (Topic.URL => F[Unit])): Settings[F, E] =
@@ -387,6 +355,7 @@ object Producer {
       SettingsImpl[F, E](
         name = None,
         batching = Batching.Disabled,
+        messageKey = _ => MessageKey.Empty,
         shardKey = _ => ShardKey.Default,
         logger = _ => _ => Applicative[F].unit,
         messageEncoder = None,
