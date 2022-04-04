@@ -17,7 +17,7 @@
 package dev.profunktor.pulsar
 package transactions
 
-import org.apache.pulsar.client.api.transaction.{Transaction, TxnID}
+import org.apache.pulsar.client.api.transaction.{ Transaction, TxnID }
 
 sealed trait Tx {
   def getId: TxnID

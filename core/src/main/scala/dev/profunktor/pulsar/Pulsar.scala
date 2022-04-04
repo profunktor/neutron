@@ -50,7 +50,7 @@ object Pulsar {
             settings.operationTimeout.value.length.toInt,
             settings.operationTimeout.value.unit
           )
-          .enableTransaction(true) // TODO: Make this configurable
+          .enableTransaction(settings.txEnabled)
           .build
       )
     )
@@ -58,6 +58,14 @@ object Pulsar {
   sealed abstract class Settings {
     val connectionTimeout: ConnectionTimeout
     val operationTimeout: OperationTimeout
+    val txEnabled: Boolean
+
+    /**
+      * Enable transactions support on the client. The broker must be configured accordingly:
+      *
+      * - set `transactionCoordinatorEnabled=true` in the broker configuration.
+      */
+    def withTransactionsEnabled: Settings
 
     /**
       * Set the duration of time to wait for a connection to a broker to be established.
@@ -96,8 +104,12 @@ object Pulsar {
 
     private case class SettingsImpl(
         connectionTimeout: ConnectionTimeout,
-        operationTimeout: OperationTimeout
+        operationTimeout: OperationTimeout,
+        txEnabled: Boolean
     ) extends Settings {
+      override def withTransactionsEnabled: Settings =
+        copy(txEnabled = true)
+
       override def withConnectionTimeout(timeout: ConnectionTimeout): Settings =
         copy(connectionTimeout = timeout)
 
@@ -107,7 +119,8 @@ object Pulsar {
 
     def apply(): Settings = SettingsImpl(
       ConnectionTimeout(30.seconds),
-      OperationTimeout(30.seconds)
+      OperationTimeout(30.seconds),
+      txEnabled = false
     )
   }
 }
