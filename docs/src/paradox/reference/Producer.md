@@ -5,14 +5,12 @@ A [producer](https://pulsar.apache.org/docs/en/concepts-messaging/#producers) is
 Neutron models it via a tagless algebra.
 
 ```scala mdoc:compile-only
-import dev.profunktor.pulsar._
-import org.apache.pulsar.client.api.MessageId
+import org.apache.pulsar.client.api.{ MessageId, ProducerStats }
 
 trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
-  def send(msg: E, key: MessageKey): F[MessageId]
   def send(msg: E, properties: Map[String, String]): F[MessageId]
-  def send(msg: E, key: MessageKey, properties: Map[String, String]): F[MessageId]
+  def stats: F[ProducerStats]
 }
 ```
 
@@ -70,32 +68,6 @@ def simple(
   producer.send_("some-message")
 ```
 
-## Sharding
-
-The other two variations also take a `MessageKey` as argument, which is used for distributing messages.
-
-```scala mdoc:compile-only
-sealed trait MessageKey
-object MessageKey {
-  final case class Of(value: String) extends MessageKey
-  case object Empty extends MessageKey
-}
-```
-
-This could be useful if you want to publish a message to a specific shard at some point.
-
-```scala mdoc
-def shard(
-    producer: Producer[IO, String]
-): IO[Unit] = {
-  val msg = "some-message"
-  val key = MessageKey.Of(msg.hashCode.toString)
-  producer.send_(msg, key)
-}
-```
-
-However, if you always want to publish messages according to a specific key, prefer to use the `withShardKey` option, described in the next section.
-
 ## Deduplication
 
 Pulsar supports [deduplication](https://pulsar.apache.org/docs/en/concepts-messaging/#message-deduplication) at the broker level.
@@ -144,6 +116,7 @@ val encoder: String => Array[Byte] =
 val settings =
   Producer.Settings[IO, String]()
    .withBatching(batching)
+   .withMessageKey(s => MessageKey.Of(s.hashCode.toString))
    .withShardKey(s => ShardKey.Of(s.hashCode.toString.getBytes))
    .withLogger(e => url => IO.println(s"Message: $e, URL: $url"))
    .withUnsafeConf(_.autoUpdatePartitions(false))
@@ -155,6 +128,6 @@ def custom(
   Producer.make(pulsar, topic, encoder, settings)
 ```
 
-The `withShardKey` option is quite useful when we want to publish messages based on certain property of your messages, e.g. an `EventId`. This applies when you use it together with `KeyShared` subscriptions, on the consumer side.
+The `withShardKey` option is quite useful when we want to publish messages based on certain property of your messages, e.g. an `EventId`. This applies when you use it together with `KeyShared` subscriptions, on the consumer side. Internally, this sets the `orderingKey` of every message.
 
-When a `ShardKey` is defined, we don't need to provide a `MessageKey` manually and can just use the simple `send` and `send_` methods that take a single argument: the payload.
+On the other hand, the `withMessageKey` option sets the "partitioning key" of every message, used for compacted topics. Also bear in mind that if you use a `KeyShared` subscription but don't set the `orderingKey` (via `withShardKey`), the default `MessageKey` will be used.
