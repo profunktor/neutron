@@ -62,8 +62,6 @@ object DeduplicationSuite extends IOSuite {
   }
 
   test("Producer deduplicates messages") { client =>
-    val utf8 = PulsarSchema.utf8
-
     val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
       for {
         p <- Producer.make[IO, String](client, topic, utf8, pSettings)

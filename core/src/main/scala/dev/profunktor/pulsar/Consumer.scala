@@ -20,6 +20,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 import dev.profunktor.pulsar.internal.FutureLift
+import dev.profunktor.pulsar.transactions.Tx
 
 import cats._
 import cats.effect._
@@ -33,6 +34,11 @@ trait Consumer[F[_], E] {
     * Acknowledge a single message.
     */
   def ack(id: MessageId): F[Unit]
+
+  /**
+    * Acknowledge a single message within a transaction.
+    */
+  def ack(id: MessageId, tx: Tx): F[Unit]
 
   /**
     * Acknowledge multiple messages.
@@ -220,7 +226,12 @@ object Consumer {
         case Left(c) =>
           new SchemaConsumer[F, E](c, settings) {
             override def ack(id: MessageId): F[Unit] =
-              Sync[F].delay(c.acknowledge(id))
+              FutureLift[F].futureLift(c.acknowledgeAsync(id)).void
+            override def ack(id: MessageId, tx: Tx): F[Unit] =
+              tx match {
+                case Tx.Underlying(_tx) =>
+                  FutureLift[F].futureLift(c.acknowledgeAsync(id, _tx)).void
+              }
             override def ack(ids: Set[MessageId]): F[Unit] =
               Sync[F].delay(c.acknowledge(ids.toList.asJava))
             override def nack(id: MessageId): F[Unit] =
@@ -243,6 +254,11 @@ object Consumer {
             new ByteConsumer[F, E](c, dec, settings) {
               override def ack(id: MessageId): F[Unit] =
                 Sync[F].delay(c.acknowledge(id))
+              override def ack(id: MessageId, tx: Tx): F[Unit] =
+                tx match {
+                  case Tx.Underlying(_tx) =>
+                    FutureLift[F].futureLift(c.acknowledgeAsync(id, _tx)).void
+                }
               override def ack(ids: Set[MessageId]): F[Unit] =
                 Sync[F].delay(c.acknowledge(ids.toList.asJava))
               override def nack(id: MessageId): F[Unit] =

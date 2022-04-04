@@ -50,6 +50,7 @@ object Pulsar {
             settings.operationTimeout.value.length.toInt,
             settings.operationTimeout.value.unit
           )
+          .enableTransaction(true) // TODO: Make this configurable
           .build
       )
     )
