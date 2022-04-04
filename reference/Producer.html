@@ -257,7 +257,7 @@ def creation(
 </code></pre>
 <p>This instance is usually good enough, as Pulsar only requires the next sequence id should be greater than the previous one. However, if for some reason you need a different implementation, you can write your own instance.</p>
 <p>To enable deduplication, we can use the following setting.</p>
-<pre class="prettyprint"><code class="language-scala mdoc">Producer.Settings[IO, String]().withDeduplication(seqIdMaker, &quot;producer-name-1&quot;)
+<pre class="prettyprint"><code class="language-scala mdoc">Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
 </code></pre>
 <p>The <a href="https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/DeduplicationSuite.scala">DeduplicationSuite</a> showcases this feature (also see the <code>run.sh</code> script, where deduplication is enabled at the topic level).</p>
 <h2><a href="#producer-settings" name="producer-settings" class="anchor"><span class="anchor-link"></span></a>Producer settings</h2>
