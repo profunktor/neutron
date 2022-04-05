@@ -20,7 +20,7 @@
 
 <meta name="description" content="docs">
 <link rel="shortcut icon" href="../assets/images/favicon.png">
-<title>Connection · Neutron</title>
+<title>Transactions · Neutron</title>
 <link rel="stylesheet" href="../assets/stylesheets/application.451f80e5.css">
 <link rel="stylesheet" href="../assets/stylesheets/application-palette.22915126.css">
 <meta name="theme-color" content="#009688" />
@@ -60,7 +60,7 @@ data-md-color-accent="indigo"
 Neutron
 </span>
 <span class="md-header-nav__topic">
-Connection
+Transactions
 </span>
 </div>
 </div>
@@ -141,22 +141,22 @@ profunktor/neutron
 <ul>
   <li><a href="../reference/Index.html" class="page">Reference</a>
   <ul>
-    <li><a href="../reference/Connection.html" class="active page">Connection</a></li>
+    <li><a href="../reference/Connection.html" class="page">Connection</a></li>
     <li><a href="../reference/Consumer.html" class="page">Consumer</a></li>
     <li><a href="../reference/Producer.html" class="page">Producer</a></li>
     <li><a href="../reference/Reader.html" class="page">Reader</a></li>
     <li><a href="../reference/Schema.html" class="page">Schema</a></li>
     <li><a href="../reference/Topic.html" class="page">Topic</a></li>
-    <li><a href="../reference/Transactions.html" class="page">Transactions</a></li>
+    <li><a href="../reference/Transactions.html" class="active page">Transactions</a></li>
   </ul></li>
 </ul>
 <nav class="md-nav md-nav--secondary">
 <label class="md-nav__title" for="__toc">Table of contents</label>
 <ul>
-  <li><a href="../reference/Connection.html#connection" class="header">Connection</a>
+  <li><a href="../reference/Transactions.html#transactions" class="header">Transactions</a>
   <ul>
-    <li><a href="../reference/Connection.html#configuration" class="header">Configuration</a></li>
-    <li><a href="../reference/Connection.html#pulsar-client" class="header">Pulsar client</a></li>
+    <li><a href="../reference/Transactions.html#working-with-transactions" class="header">Working with transactions</a></li>
+    <li><a href="../reference/Transactions.html#summary" class="header">Summary</a></li>
   </ul></li>
 </ul>
 </nav>
@@ -178,10 +178,10 @@ profunktor/neutron
 <nav class="md-nav md-nav--secondary">
 <label class="md-nav__title" for="__toc">Table of contents</label>
 <ul>
-  <li><a href="../reference/Connection.html#connection" class="header">Connection</a>
+  <li><a href="../reference/Transactions.html#transactions" class="header">Transactions</a>
   <ul>
-    <li><a href="../reference/Connection.html#configuration" class="header">Configuration</a></li>
-    <li><a href="../reference/Connection.html#pulsar-client" class="header">Pulsar client</a></li>
+    <li><a href="../reference/Transactions.html#working-with-transactions" class="header">Working with transactions</a></li>
+    <li><a href="../reference/Transactions.html#summary" class="header">Summary</a></li>
   </ul></li>
 </ul>
 </nav>
@@ -192,59 +192,81 @@ profunktor/neutron
 <div class="md-content">
 <article class="md-content__inner md-typeset">
 <div class="md-content__searchable">
-<h1><a href="#connection" name="connection" class="anchor"><span class="anchor-link"></span></a>Connection</h1>
-<p>A connection to Apache Pulsar is an expensive operation, reason why it is recommended to create a single instance per application.</p>
-<p>The main constructor returns a <code>cats.effect.Resource</code>, and is defined as follows.</p>
+<h1><a href="#transactions" name="transactions" class="anchor"><span class="anchor-link"></span></a>Transactions</h1>
+<p>Pulsar supports <a href="https://pulsar.apache.org/docs/en/txn-why/">transactions</a> to further enable event streaming applications to consume, process, and produce messages in one atomic operation.</p>
+<p>Notice that the broker needs to be configured to support transactions (disabled by default).</p>
+<pre class="prettyprint"><code class="language-conf">transactionCoordinatorEnabled=true
+</code></pre>
+<p>Naturally, Neutron models a transaction as <code>Resource[F, Tx]</code>, where <code>Tx</code> is a custom interface that hides the underlying Java Transaction instance to avoid user mistakes.</p>
+<pre class="prettyprint"><code class="language-scala">sealed trait Tx {
+  def getId: TxnID
+}
+</code></pre>
+<h2><a href="#working-with-transactions" name="working-with-transactions" class="anchor"><span class="anchor-link"></span></a>Working with transactions</h2>
+<p>The first step is to enable transactions on the Pulsar client.</p>
 <pre class="prettyprint"><code class="language-scala mdoc">import cats.effect._
-import dev.profunktor.pulsar.Config.PulsarURL
-import dev.profunktor.pulsar.Pulsar.Settings
+import dev.profunktor.pulsar._
 
-import org.apache.pulsar.client.api.{ PulsarClient =&gt; Underlying }
+val cfg = Config.Builder.default
 
-type T = Underlying
-
-def make[F[_]: Sync](
-    url: PulsarURL,
-    settings: Settings = Settings()
-): Resource[F, T] = ???
+val mkClient =
+  Pulsar.make[IO](cfg.url, Pulsar.Settings().withTransactions)
 </code></pre>
-<p>A <code>PulsarURL</code> can only be built using smart builders, as shown in the next section.</p>
-<h2><a href="#configuration" name="configuration" class="anchor"><span class="anchor-link"></span></a>Configuration</h2>
-<p>A default configuration is usually enough to get started locally.</p>
-<pre class="prettyprint"><code class="language-scala mdoc">import dev.profunktor.pulsar.Config
-
-val config = Config.Builder.default
-</code></pre>
-<p>It sets <code>tenant=public</code>, <code>namespace=default</code>, and <code>url=pulsar://localhost:6650</code>. If would like to change any of these values, you can use the configuration builder. E.g.</p>
-<pre class="prettyprint"><code class="language-scala mdoc">val custom: Config =
-  Config.Builder
-    .withTenant(&quot;custom&quot;)
-    .withNameSpace(&quot;services&quot;)
-    .withURL(&quot;pulsar://custom.net:6650&quot;)
-    .build
-</code></pre>
-<h2><a href="#pulsar-client" name="pulsar-client" class="anchor"><span class="anchor-link"></span></a>Pulsar client</h2>
-<p>Once we have a configuration, we can proceed with the creation of a Pulsar client, necessary to create consumers, producers, and so on.</p>
-<pre class="prettyprint"><code class="language-scala mdoc">import dev.profunktor.pulsar._
-
-Pulsar.make[IO](config.url)
-</code></pre>
-<h3><a href="#connection-settings" name="connection-settings" class="anchor"><span class="anchor-link"></span></a>Connection settings</h3>
-<p>Via the second constructor argument, we can set a few client options, such as timeouts.</p>
+<p>Next, we can create a transactional resource.</p>
 <pre class="prettyprint"><code class="language-scala mdoc">import scala.concurrent.duration._
+import dev.profunktor.pulsar.transactions.{ PulsarTx, Tx }
 
-val settings =
-  Settings()
-    .withConnectionTimeout(45.seconds)
-    .withOperationTimeout(30.minutes)
-    .withTransactions
+mkClient.use { cli =&gt;
+  val mkTx = PulsarTx.make[IO](
+    client = cli,
+    timeout = 30.seconds,
+    logger = str =&gt; IO.println(str)
+  )
 
-Pulsar.make[IO](config.url, settings)
+  mkTx.use { tx =&gt;
+    // atomic transactions here
+    IO.println(s&quot;tx-id: ${tx.getId}&quot;)
+  }
+}
 </code></pre>
-<p>To learn more about transactions, check out the <a href="Transactions.html">Transactions section</a>.</p>
+<p>Now we are ready to use the transaction for some atomic operations. Once we <code>use</code> the resource, the transaction will begin. From this point, we can consume, process, and produce messages in a transactional fashion.</p>
+<p>The <a href="https://github.com/profunktor/neutron/blob/main/tests/src/it/scala/dev/profunktor/pulsar/TransactionSuite.scala">TransactionSuite</a> showcases this feature in detail.</p>
+<p>In a nutshell, we have two producers and two consumers in total, for inputs and outputs, respectively.</p>
+<p>The first producer <code>pi</code> produces inputs that the <code>ci</code> consumer reads. These inputs are processed and the results are published as outputs by the <code>po</code> producer. Lastly, the <code>co</code> consumer would read these outputs.</p>
+<p>The atomic operations happen between reading inputs and publishing outputs. To do so, the <code>ci</code> consumer keeps track of the <code>MessageId</code>s in memory, to then acknowledge them once we are done with the transaction.</p>
+<pre class="prettyprint"><code class="language-scala">val consumeInputs =
+  ci.subscribe.evalMap {
+    case Consumer.Message(id, _, _, payload) =&gt;
+      for {
+        _ &lt;- ref.update(_ :+ payload)
+        _ &lt;- ids.update(_ + id)
+        _ &lt;- po.send_(s&quot;$payload-out&quot;)
+      } yield ()
+  }
+</code></pre>
+<p>We accumulate <code>MessageId</code>s in a local <code>ids</code> ref. Here&rsquo;s the inputs producer:</p>
+<pre class="prettyprint"><code class="language-scala">val produceInputs =
+  Stream.emits(events).evalMap(pi.send_) ++ Stream.eval {
+    latch.get *&gt; ids.get.flatMap(_.toList.traverse_(ci.ack(_, tx)))
+  }
+</code></pre>
+<p>Once the producer finishes, it proceeds to atomically acknowledge the <code>MessageId</code>s we have in memory. To do so, we use the special <code>ack</code> method that also takes a <code>Tx</code> as argument.</p>
+<p>That <code>latch.get</code> is only there to synchronize the order in which things terminate in the test suite. Your use case may be handled differently.</p>
+<p>When the resource scope ends, the transaction will be committed. If we wanted to abort the transaction instead, all we need is to raise an error. E.g.</p>
+<pre class="prettyprint"><code class="language-scala">latch.get *&gt; IO.raiseError(new Exception(&quot;Abort tx&quot;))
+</code></pre>
+<p>This error should be handled outside the resource scope to avoid crashing the entire program.</p>
+<h2><a href="#summary" name="summary" class="anchor"><span class="anchor-link"></span></a>Summary</h2>
+<p>In short, it all boils down to the following operations.</p>
+<ul>
+  <li>Enable transactions support on the broker (via <code>broker.conf</code> or <code>standalone.conf</code>).</li>
+  <li>Enable transactions support on the client (via <code>withTransactions</code> on settings).</li>
+  <li>Acknowledge messages via <code>ack(id, tx)</code> after the processing and publishing of messages is done, to guarantee one atomic operation.</li>
+  <li>Raise an error within the <code>use</code> block of the transaction to abort. Exit the <code>use</code> block to commit the transaction (done automatically).</li>
+</ul>
 </div>
 <div>
-<a href="https://github.com/profunktor/neutron/tree/master/docs/src/paradox/reference/Connection.md" title="Edit this page" class="md-source-file md-edit">
+<a href="https://github.com/profunktor/neutron/tree/master/docs/src/paradox/reference/Transactions.md" title="Edit this page" class="md-source-file md-edit">
 Edit this page
 </a>
 </div>
@@ -260,7 +282,7 @@ Edit this page
 <footer class="md-footer">
 <div class="md-footer-nav">
 <nav class="md-footer-nav__inner md-grid">
-<a href="../reference/Index.html" title="Reference" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+<a href="../reference/Topic.html" title="Topic" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
 <div class="md-flex__cell md-flex__cell--shrink">
 <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
 </div>
@@ -269,21 +291,8 @@ Edit this page
 <span class="md-footer-nav__direction">
 Previous
 </span>
-Reference
+Topic
 </span>
-</div>
-</a>
-<a href="../reference/Consumer.html" title="Consumer" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
-<div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-<span class="md-flex__ellipsis">
-<span class="md-footer-nav__direction">
-Next
-</span>
-Consumer
-</span>
-</div>
-<div class="md-flex__cell md-flex__cell--shrink">
-<i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
 </div>
 </a>
 </nav>
