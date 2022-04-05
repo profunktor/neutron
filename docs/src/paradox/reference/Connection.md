@@ -63,6 +63,9 @@ val settings =
   Settings()
     .withConnectionTimeout(45.seconds)
     .withOperationTimeout(30.minutes)
+    .withTransactions
 
 Pulsar.make[IO](config.url, settings)
 ```
+
+To learn more about transactions, check out the @ref:[Transactions section](../reference/Transactions.md).

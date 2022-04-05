@@ -25,9 +25,7 @@ import cats.effect._
 import cats.syntax.all._
 import fs2.Stream
 import org.apache.pulsar.client.api.MessageId
-import weaver.IOSuite
-import weaver.Expectations
-import weaver.SourceLocation
+import weaver.{ Expectations, IOSuite, SourceLocation }
 
 object TransactionSuite extends IOSuite {
 
