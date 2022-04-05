@@ -28,14 +28,7 @@ import cats._
 import cats.effect._
 import cats.syntax.all._
 import fs2.concurrent.{ Topic => _ }
-import org.apache.pulsar.client.api.{
-  MessageId,
-  Producer => JProducer,
-  ProducerBuilder,
-  ProducerStats,
-  Schema,
-  TypedMessageBuilder
-}
+import org.apache.pulsar.client.api.{ Producer => JProducer, _ }
 
 trait Producer[F[_], E] {
 

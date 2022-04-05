@@ -20,6 +20,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 import dev.profunktor.pulsar.internal.FutureLift
+import dev.profunktor.pulsar.transactions.Tx
 
 import cats._
 import cats.effect._
@@ -33,6 +34,11 @@ trait Consumer[F[_], E] {
     * Acknowledge a single message.
     */
   def ack(id: MessageId): F[Unit]
+
+  /**
+    * Acknowledge a single message within a transaction.
+    */
+  def ack(id: MessageId, tx: Tx): F[Unit]
 
   /**
     * Acknowledge multiple messages.
@@ -176,6 +182,7 @@ object Consumer {
       topic: Topic,
       settings: Settings[F, E]
   ): Resource[F, Consumer[F, E]] = {
+    val F = FutureLift[F]
 
     val acquire: F[Either[JConsumer[E], JConsumer[Array[Byte]]]] = {
       def configure[A](c: ConsumerBuilder[A]) = {
@@ -200,18 +207,17 @@ object Consumer {
 
       settings.schema match {
         case Some(s) =>
-          FutureLift[F].futureLift(configure(client.newConsumer(s))).map(_.asLeft)
+          F.futureLift(configure(client.newConsumer(s))).map(_.asLeft)
         case None =>
-          FutureLift[F].futureLift(configure(client.newConsumer())).map(_.asRight)
+          F.futureLift(configure(client.newConsumer())).map(_.asRight)
       }
     }
 
     def release(ec: Either[JConsumer[E], JConsumer[Array[Byte]]]): F[Unit] =
-      FutureLift[F]
-        .futureLift(ec.fold(_.unsubscribeAsync(), _.unsubscribeAsync()))
+      F.futureLift(ec.fold(_.unsubscribeAsync(), _.unsubscribeAsync()))
         .attempt
         .whenA(settings.autoUnsubscribe)
-        .flatMap(_ => FutureLift[F].futureLift(ec.fold(_.closeAsync(), _.closeAsync())))
+        .flatMap(_ => F.futureLift(ec.fold(_.closeAsync(), _.closeAsync())))
         .void
 
     Resource
@@ -220,13 +226,18 @@ object Consumer {
         case Left(c) =>
           new SchemaConsumer[F, E](c, settings) {
             override def ack(id: MessageId): F[Unit] =
-              Sync[F].delay(c.acknowledge(id))
+              FutureLift[F].futureLift(c.acknowledgeAsync(id)).void
+            override def ack(id: MessageId, tx: Tx): F[Unit] =
+              tx match {
+                case Tx.Underlying(_tx) =>
+                  F.futureLift(c.acknowledgeAsync(id, _tx)).void
+              }
             override def ack(ids: Set[MessageId]): F[Unit] =
-              Sync[F].delay(c.acknowledge(ids.toList.asJava))
+              F.futureLift(c.acknowledgeAsync(ids.toList.asJava)).void
             override def nack(id: MessageId): F[Unit] =
-              Sync[F].delay(c.negativeAcknowledge(id))
+              Sync[F].blocking(c.negativeAcknowledge(id))
             override def unsubscribe: F[Unit] =
-              FutureLift[F].futureLift(c.unsubscribeAsync()).void
+              F.futureLift(c.unsubscribeAsync()).void
             override def subscribe: Stream[F, Message[E]] =
               subscribeInternal(autoAck = false)
             override def subscribe(id: MessageId): Stream[F, Consumer.Message[E]] =
@@ -242,13 +253,18 @@ object Consumer {
           ) { dec =>
             new ByteConsumer[F, E](c, dec, settings) {
               override def ack(id: MessageId): F[Unit] =
-                Sync[F].delay(c.acknowledge(id))
+                F.futureLift(c.acknowledgeAsync(id)).void
+              override def ack(id: MessageId, tx: Tx): F[Unit] =
+                tx match {
+                  case Tx.Underlying(_tx) =>
+                    F.futureLift(c.acknowledgeAsync(id, _tx)).void
+                }
               override def ack(ids: Set[MessageId]): F[Unit] =
-                Sync[F].delay(c.acknowledge(ids.toList.asJava))
+                F.futureLift(c.acknowledgeAsync(ids.toList.asJava)).void
               override def nack(id: MessageId): F[Unit] =
-                Sync[F].delay(c.negativeAcknowledge(id))
+                Sync[F].blocking(c.negativeAcknowledge(id))
               override def unsubscribe: F[Unit] =
-                FutureLift[F].futureLift(c.unsubscribeAsync()).void
+                F.futureLift(c.unsubscribeAsync()).void
               override def subscribe: Stream[F, Message[E]] =
                 subscribeInternal(autoAck = false)
               override def subscribe(id: MessageId): Stream[F, Consumer.Message[E]] =
