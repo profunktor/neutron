@@ -65,7 +65,7 @@ object Pulsar {
       *
       * - set `transactionCoordinatorEnabled=true` in the broker configuration.
       */
-    def withTransactionsEnabled: Settings
+    def withTransactions: Settings
 
     /**
       * Set the duration of time to wait for a connection to a broker to be established.
@@ -107,7 +107,7 @@ object Pulsar {
         operationTimeout: OperationTimeout,
         txEnabled: Boolean
     ) extends Settings {
-      override def withTransactionsEnabled: Settings =
+      override def withTransactions: Settings =
         copy(txEnabled = true)
 
       override def withConnectionTimeout(timeout: ConnectionTimeout): Settings =

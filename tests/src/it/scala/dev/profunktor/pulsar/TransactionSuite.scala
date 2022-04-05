@@ -35,7 +35,7 @@ object TransactionSuite extends IOSuite {
 
   override type Res = Pulsar.T
   override def sharedResource: Resource[IO, Res] =
-    Pulsar.make[IO](cfg.url, Pulsar.Settings().withTransactionsEnabled)
+    Pulsar.make[IO](cfg.url, Pulsar.Settings().withTransactions)
 
   def subIn(id: Int) =
     Subscription.Builder
