@@ -51,6 +51,11 @@ trait Consumer[F[_], E] {
   def nack(id: MessageId): F[Unit]
 
   /**
+    * Fetch the last MessageId available to consume.
+    */
+  def lastMessageId: F[Option[MessageId]]
+
+  /**
     * It consumes [[Consumer.Message]]s, which contain the ID and the PAYLOAD.
     *
     * If you don't need manual acking, consider using [[autoSubscribe]] instead.
@@ -236,6 +241,8 @@ object Consumer {
               F.futureLift(c.acknowledgeAsync(ids.toList.asJava)).void
             override def nack(id: MessageId): F[Unit] =
               Sync[F].blocking(c.negativeAcknowledge(id))
+            override def lastMessageId: F[Option[MessageId]] =
+              F.futureLift(c.getLastMessageIdAsync()).attempt.map(_.toOption)
             override def unsubscribe: F[Unit] =
               F.futureLift(c.unsubscribeAsync()).void
             override def subscribe: Stream[F, Message[E]] =
@@ -263,6 +270,8 @@ object Consumer {
                 F.futureLift(c.acknowledgeAsync(ids.toList.asJava)).void
               override def nack(id: MessageId): F[Unit] =
                 Sync[F].blocking(c.negativeAcknowledge(id))
+              override def lastMessageId: F[Option[MessageId]] =
+                F.futureLift(c.getLastMessageIdAsync()).attempt.map(_.toOption)
               override def unsubscribe: F[Unit] =
                 F.futureLift(c.unsubscribeAsync()).void
               override def subscribe: Stream[F, Message[E]] =
