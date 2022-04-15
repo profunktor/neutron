@@ -16,6 +16,8 @@
 
 package dev.profunktor.pulsar
 
+import java.util.concurrent.CompletableFuture
+
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
@@ -84,6 +86,44 @@ trait Consumer[F[_], E] {
     * [[Subscription.Mode.NonDurable]] instead.
     */
   def unsubscribe: F[Unit]
+
+  /**
+    * USE THIS ONE WITH CAUTION!
+    *
+    * In case Neutron does not yet support what you're looking for, there is a big chance
+    * the underlying Java client does.
+    *
+    * In this case, you can access the underlying Java `Consumer` to execute an operation. E.g.
+    *
+    * {{{
+    * consumer.unsafe(_.isConnected) // F[Boolean]
+    * }}}
+    *
+    * Please submit a feature request issue or (even better) a PR adding support for the unsupported
+    * operation. There is a high chance to be added to Neutron.
+    *
+    * For asynchronous operations (those returning `CompletableFuture`), use [[unsafeAsync]] instead.
+    */
+  def unsafe[A](f: JConsumer[Any] => A): F[A]
+
+  /**
+    * USE THIS ONE WITH CAUTION!
+    *
+    * In case Neutron does not yet support what you're looking for, there is a big chance
+    * the underlying Java client does.
+    *
+    * In this case, you can access the underlying Java `Consumer` to execute an operation. E.g.
+    *
+    * {{{
+    * consumer.unsafeAsync(_.seekAsync(msgId)) // F[Void]
+    * }}}
+    *
+    * Please submit a feature request issue or (even better) a PR adding support for the unsupported
+    * operation. There is a high chance to be added to Neutron.
+    *
+    * For blocking operations use [[unsafe]] instead.
+    */
+  def unsafeAsync[A](f: JConsumer[Any] => CompletableFuture[A]): F[A]
 }
 
 private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
@@ -251,6 +291,10 @@ object Consumer {
               subscribeInternal(autoAck = false, seekId = Some(id))
             override def autoSubscribe: Stream[F, E] =
               subscribeInternal(autoAck = true).map(_.payload)
+            override def unsafe[A](f: JConsumer[Any] => A): F[A] =
+              Sync[F].blocking(f(c.asInstanceOf[JConsumer[Any]]))
+            override def unsafeAsync[A](f: JConsumer[Any] => CompletableFuture[A]): F[A] =
+              F.futureLift(f(c.asInstanceOf[JConsumer[Any]]))
           }
         case Right(c) =>
           settings.messageDecoder.fold(
@@ -280,6 +324,12 @@ object Consumer {
                 subscribeInternal(autoAck = false, seekId = Some(id))
               override def autoSubscribe: Stream[F, E] =
                 subscribeInternal(autoAck = true).map(_.payload)
+              override def unsafe[A](f: JConsumer[Any] => A): F[A] =
+                Sync[F].blocking(f(c.asInstanceOf[JConsumer[Any]]))
+              override def unsafeAsync[A](
+                  f: JConsumer[Any] => CompletableFuture[A]
+              ): F[A] =
+                F.futureLift(f(c.asInstanceOf[JConsumer[Any]]))
             }
           }
       }
