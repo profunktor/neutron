@@ -34,7 +34,7 @@ Next, we can create a transactional resource.
 
 ```scala mdoc
 import scala.concurrent.duration._
-import dev.profunktor.pulsar.transactions.{ PulsarTx, Tx }
+import dev.profunktor.pulsar.transactions.PulsarTx
 
 mkClient.use { cli =>
   val mkTx = PulsarTx.make[IO](
