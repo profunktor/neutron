@@ -76,7 +76,7 @@ object DeduplicationSuite extends IOSuite {
             case (c, p) =>
               val consume =
                 c.subscribe.evalMap {
-                  case Consumer.Message(id, _, _, payload) =>
+                  case Consumer.Message(id, _, _, _, payload) =>
                     for {
                       _ <- ref.update(_ :+ payload)
                       _ <- c.ack(id)

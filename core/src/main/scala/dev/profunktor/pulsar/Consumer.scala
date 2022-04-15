@@ -151,8 +151,8 @@ private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
                     m.getMessageId,
                     MessageKey(m.getKey),
                     m.getProperties.asScala.toMap,
-                    e,
-                    m.asInstanceOf[JMessage[Any]]
+                    m.asInstanceOf[JMessage[Any]],
+                    e
                   )
                 )
           }
@@ -187,8 +187,8 @@ private abstract class ByteConsumer[F[_]: FutureLift: Sync, E](
                           m.getMessageId,
                           MessageKey(m.getKey),
                           m.getProperties.asScala.toMap,
-                          e,
-                          m.asInstanceOf[JMessage[Any]]
+                          m.asInstanceOf[JMessage[Any]],
+                          e
                         )
                       )
                 }
@@ -211,8 +211,8 @@ object Consumer {
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
-      payload: A,
-      raw: JMessage[Any]
+      raw: JMessage[Any],
+      payload: A
   )
 
   case class DecodingFailure(msg: String) extends Exception(msg) with NoStackTrace

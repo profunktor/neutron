@@ -15,8 +15,8 @@ object Consumer {
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
-      payload: A,
-      raw: JMessage[Any]
+      raw: JMessage[Any],
+      payload: A
   )
 }
 
@@ -152,7 +152,7 @@ def manual(
 ): IO[Unit] =
   consumer
    .subscribe
-   .evalMap { case Consumer.Message(id, _, _, payload, _) =>
+   .evalMap { case Consumer.Message(id, _, _, _, payload) =>
      process(payload) // pretend `process` might raise an error
        .flatMap(_ => consumer.ack(id))
        .handleErrorWith(e => IO.println(e) *> consumer.nack(id))
