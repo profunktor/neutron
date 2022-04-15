@@ -28,7 +28,7 @@ import cats._
 import cats.effect._
 import cats.syntax.all._
 import fs2._
-import org.apache.pulsar.client.api.{ Consumer => JConsumer, _ }
+import org.apache.pulsar.client.api.{ Consumer => JConsumer, Message => JMessage, _ }
 
 trait Consumer[F[_], E] {
 
@@ -151,6 +151,7 @@ private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
                     m.getMessageId,
                     MessageKey(m.getKey),
                     m.getProperties.asScala.toMap,
+                    m.asInstanceOf[JMessage[Any]],
                     e
                   )
                 )
@@ -186,6 +187,7 @@ private abstract class ByteConsumer[F[_]: FutureLift: Sync, E](
                           m.getMessageId,
                           MessageKey(m.getKey),
                           m.getProperties.asScala.toMap,
+                          m.asInstanceOf[JMessage[Any]],
                           e
                         )
                       )
@@ -209,6 +211,7 @@ object Consumer {
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
+      raw: JMessage[Any],
       payload: A
   )
 

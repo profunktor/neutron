@@ -92,7 +92,7 @@ object TransactionSuite extends IOSuite {
               Stream.resource(mkTx).flatMap { tx =>
                 val consumeInputs =
                   ci.subscribe.evalMap {
-                    case Consumer.Message(id, _, _, payload) =>
+                    case Consumer.Message(id, _, _, _, payload) =>
                       for {
                         _ <- ref.update(_ :+ payload)
                         _ <- ids.update(_ + id)
@@ -102,7 +102,7 @@ object TransactionSuite extends IOSuite {
 
                 val consumeOutputs =
                   co.subscribe.evalMap {
-                    case Consumer.Message(id, _, _, payload) =>
+                    case Consumer.Message(id, _, _, _, payload) =>
                       ref.update(_ :+ payload) *> co.ack(id) *>
                           latch.complete(()).whenA(payload == "c-out")
                   }

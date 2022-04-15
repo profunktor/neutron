@@ -119,7 +119,7 @@ object PulsarSuite extends IOSuite {
           case (consumer, producer) =>
             val consume =
               consumer.subscribe.evalMap {
-                case Consumer.Message(id, _, props, payload) =>
+                case Consumer.Message(id, _, props, _, payload) =>
                   consumer.ack(id) *> latch.complete(payload -> props)
               }
 
