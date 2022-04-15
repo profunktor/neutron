@@ -28,7 +28,7 @@ import cats._
 import cats.effect._
 import cats.syntax.all._
 import fs2._
-import org.apache.pulsar.client.api.{ Consumer => JConsumer, _ }
+import org.apache.pulsar.client.api.{ Consumer => JConsumer, Message => JMessage, _ }
 
 trait Consumer[F[_], E] {
 
@@ -151,7 +151,8 @@ private abstract class SchemaConsumer[F[_]: FutureLift: Sync, E](
                     m.getMessageId,
                     MessageKey(m.getKey),
                     m.getProperties.asScala.toMap,
-                    e
+                    e,
+                    m.asInstanceOf[JMessage[Any]]
                   )
                 )
           }
@@ -186,7 +187,8 @@ private abstract class ByteConsumer[F[_]: FutureLift: Sync, E](
                           m.getMessageId,
                           MessageKey(m.getKey),
                           m.getProperties.asScala.toMap,
-                          e
+                          e,
+                          m.asInstanceOf[JMessage[Any]]
                         )
                       )
                 }
@@ -209,7 +211,8 @@ object Consumer {
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
-      payload: A
+      payload: A,
+      raw: JMessage[Any]
   )
 
   case class DecodingFailure(msg: String) extends Exception(msg) with NoStackTrace

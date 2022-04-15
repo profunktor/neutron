@@ -8,14 +8,15 @@ Neutron models it via a tagless algebra.
 import dev.profunktor.pulsar._
 
 import fs2.Stream
-import org.apache.pulsar.client.api.MessageId
+import org.apache.pulsar.client.api.{ Message => JMessage, MessageId }
 
 object Consumer {
   case class Message[A](
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
-      payload: A
+      payload: A,
+      raw: JMessage[Any]
   )
 }
 
@@ -151,7 +152,7 @@ def manual(
 ): IO[Unit] =
   consumer
    .subscribe
-   .evalMap { case Consumer.Message(id, _, _, payload) =>
+   .evalMap { case Consumer.Message(id, _, _, payload, _) =>
      process(payload) // pretend `process` might raise an error
        .flatMap(_ => consumer.ack(id))
        .handleErrorWith(e => IO.println(e) *> consumer.nack(id))
