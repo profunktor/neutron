@@ -208,13 +208,14 @@ profunktor/neutron
 <pre class="prettyprint"><code class="language-scala mdoc:compile-only">import dev.profunktor.pulsar._
 
 import fs2.Stream
-import org.apache.pulsar.client.api.MessageId
+import org.apache.pulsar.client.api.{ Message =&gt; JMessage, MessageId }
 
 object Consumer {
   case class Message[A](
       id: MessageId,
       key: MessageKey,
       properties: Map[String, String],
+      raw: JMessage[Any],
       payload: A
   )
 }
@@ -314,7 +315,7 @@ def manual(
 ): IO[Unit] =
   consumer
    .subscribe
-   .evalMap { case Consumer.Message(id, _, _, payload) =&gt;
+   .evalMap { case Consumer.Message(id, _, _, _, payload) =&gt;
      process(payload) // pretend `process` might raise an error
        .flatMap(_ =&gt; consumer.ack(id))
        .handleErrorWith(e =&gt; IO.println(e) *&gt; consumer.nack(id))
