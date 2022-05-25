@@ -77,18 +77,20 @@ In a nutshell, the deduplication mechanism is based on sequence ids, which can b
 To make things smoother, Neutron internally manages the creation of new sequence ids via the following interface.
 
 ```scala mdoc
-trait SeqIdMaker[A] {
-  def next(prevId: Long, prevPayload: Option[A], payload: A): Long
+trait SeqIdMaker[F[_]] {
+  def make(lastSeqId: Long): F[Long]
 }
 ```
 
-A default instance for any `A: Eq` can be constructed via the `fromEq` method, which compares the previous payload with the current payload. If they are equal, the same sequence id is returned. Otherwise, a `prevId + 1` is used.
+Users are responsible for keeping track of their messages (usually by an `EventId` or so), and return `lastSeqId + 1` when the message is unique, or simply `lastSeqId` when it's a duplicate.
+
+You may use the `instance` constructor as follows:
 
 ```scala mdoc
-val seqIdMaker = SeqIdMaker.fromEq[String]
+val seqIdMaker = SeqIdMaker.instance[IO] { lastSeqId =>
+  IO.pure(lastSeqId + 1) // replace with your logic
+}
 ```
-
-This instance is usually good enough, as Pulsar only requires the next sequence id should be greater than the previous one. However, if for some reason you need a different implementation, you can write your own instance.
 
 To enable deduplication, we can use the following setting.
 
