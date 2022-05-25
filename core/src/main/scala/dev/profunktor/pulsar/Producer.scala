@@ -66,10 +66,10 @@ object Producer {
     case object Disabled extends Batching
   }
 
-  sealed trait Deduplication[+A]
+  sealed trait Deduplication[F[_], +A]
   object Deduplication {
-    case object Disabled extends Deduplication[Nothing]
-    case class Enabled[A](seqIdMaker: SeqIdMaker[A]) extends Deduplication[A]
+    case class Disabled[F[_]]() extends Deduplication[F, Nothing]
+    case class Enabled[F[_], E](seqIdMaker: SeqIdMaker[F, E]) extends Deduplication[F, E]
   }
 
   /**
@@ -145,7 +145,7 @@ object Producer {
         builder: ProducerBuilder[A]
     ): ProducerBuilder[A] =
       settings.deduplication match {
-        case Deduplication.Disabled   => builder
+        case Deduplication.Disabled() => builder
         case Deduplication.Enabled(_) => builder.sendTimeout(0, TimeUnit.SECONDS)
       }
 
@@ -167,8 +167,7 @@ object Producer {
         p: JProducer[A],
         msg: E,
         enc: E => A,
-        properties: Map[String, String],
-        prevMsgs: Ref[F, Option[E]]
+        properties: Map[String, String]
     ): F[MessageId] = {
       val _msg = enc(msg)
 
@@ -186,13 +185,13 @@ object Producer {
 
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
-          prevMsgs.modify { prev =>
-            val nextId = seqIdMaker
-              .asInstanceOf[SeqIdMaker[E]]
-              .next(p.getLastSequenceId(), prev, msg)
-            Some(msg) -> cont(_.sequenceId(nextId))
-          }.flatten
-        case Deduplication.Disabled =>
+          seqIdMaker
+            .asInstanceOf[SeqIdMaker[F, E]]
+            .make(p.getLastSequenceId(), msg)
+            .flatMap { nextId =>
+              cont(_.sequenceId(nextId))
+            }
+        case Deduplication.Disabled() =>
           cont(identity)
       }
     }
@@ -212,16 +211,15 @@ object Producer {
           }
         }
       }(p => FutureLift[F].futureLift(p.fold(_.closeAsync(), _.closeAsync())).void)
-      .evalMap(p => Ref.of[F, Option[E]](None).map(p -> _))
       .map {
-        case (Left(p), prevMsgs) =>
+        case Left(p) =>
           new Producer[F, E] {
             override def send(msg: E): F[MessageId] = send(msg, Map.empty)
 
             override def send_(msg: E): F[Unit] = send(msg).void
 
             override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-              sendMessage[E](p, msg, identity, properties, prevMsgs)
+              sendMessage[E](p, msg, identity, properties)
 
             override def send_(msg: E, properties: Map[String, String]): F[Unit] =
               send(msg, properties).void
@@ -230,7 +228,7 @@ object Producer {
               Sync[F].blocking(p.getStats())
           }
 
-        case (Right(p), prevMsgs) =>
+        case Right(p) =>
           settings.messageEncoder.fold(
             throw new IllegalArgumentException(
               "Missing message encoder (used when pulsar schema is not set)"
@@ -242,7 +240,7 @@ object Producer {
               override def send_(msg: E): F[Unit] = send(msg).void
 
               override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-                sendMessage[Array[Byte]](p, msg, enc, properties, prevMsgs)
+                sendMessage[Array[Byte]](p, msg, enc, properties)
 
               override def send_(msg: E, properties: Map[String, String]): F[Unit] =
                 send(msg, properties).void
@@ -263,7 +261,7 @@ object Producer {
     val logger: E => Topic.URL => F[Unit]
     val messageEncoder: Option[E => Array[Byte]]
     val schema: Option[Schema[E]]
-    val deduplication: Deduplication[E]
+    val deduplication: Deduplication[F, E]
     val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
     def withMessageKey(_msgKey: E => MessageKey): Settings[F, E]
@@ -279,11 +277,14 @@ object Producer {
       * Example:
       *
       * {{{
-      *  Producer.Settings[IO, String]()
-      *     .withDeduplication(SeqIdMaker.fromEq[String])
+      *  val maker = SeqIdMaker.instance[IO, String](
+      *    (lastSeqId, msg) => IO.pure(lastSeqId + 1)
+      *  )
+      *
+      *  Producer.Settings[IO, String]().withDeduplication(maker)
       * }}}
       */
-    def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E]
+    def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E]
 
     /**
       * USE THIS ONE WITH CAUTION!
@@ -318,14 +319,14 @@ object Producer {
         logger: E => Topic.URL => F[Unit],
         messageEncoder: Option[E => Array[Byte]],
         schema: Option[Schema[E]],
-        deduplication: Deduplication[E],
+        deduplication: Deduplication[F, E],
         unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     ) extends Settings[F, E] {
       override def withName(_name: String): Settings[F, E] =
         copy(name = Some(_name))
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withDeduplication(seqIdMaker: SeqIdMaker[E]): Settings[F, E] =
+      override def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E] =
         copy(deduplication = Deduplication.Enabled(seqIdMaker))
       override def withMessageKey(_msgKey: E => MessageKey): Settings[F, E] =
         copy(messageKey = _msgKey)
@@ -353,7 +354,7 @@ object Producer {
         logger = _ => _ => Applicative[F].unit,
         messageEncoder = None,
         schema = None,
-        deduplication = Deduplication.Disabled,
+        deduplication = Deduplication.Disabled[F](),
         unsafeOps = identity
       )
   }

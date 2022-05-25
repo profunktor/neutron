@@ -45,10 +45,17 @@ object DeduplicationSuite extends IOSuite {
 
   val utf8 = PulsarSchema.utf8
 
-  val pSettings =
-    Producer
-      .Settings[IO, String]()
-      .withDeduplication(SeqIdMaker.fromEq[String])
+  def mkSeqIdMaker: IO[SeqIdMaker[IO, String]] =
+    Ref.of[IO, Seq[String]](Seq.empty).map { ref =>
+      SeqIdMaker.instance { (lastSeqId, msg) =>
+        ref.getAndUpdate(_ :+ msg).map { xs =>
+          if (xs.contains(msg)) lastSeqId else lastSeqId + 1
+        }
+      }
+    }
+
+  def pSettings(seqIdMaker: SeqIdMaker[IO, String]) =
+    Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
 
   def showStats(s: ProducerStats): IO[Unit] = IO.println {
     s"""
@@ -64,7 +71,8 @@ object DeduplicationSuite extends IOSuite {
   test("Producer deduplicates messages") { client =>
     val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
       for {
-        p <- Producer.make[IO, String](client, topic, utf8, pSettings)
+        m <- Resource.eval(mkSeqIdMaker)
+        p <- Producer.make[IO, String](client, topic, utf8, pSettings(m))
         c <- Consumer.make[IO, String](client, topic, sub, utf8)
       } yield c -> p
 

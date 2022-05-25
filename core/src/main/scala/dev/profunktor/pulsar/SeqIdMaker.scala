@@ -16,43 +16,26 @@
 
 package dev.profunktor.pulsar
 
-import cats.kernel.Eq
-import cats.syntax.eq._
-
 /**
   * Dictates how `sequenceId`s (used for deduplication) are generated based on:
   *
   * - A previous sequence id (-1 if there are no previous messages).
-  * - A previous payload (message).
-  * - A new payload.
+  * - A message to be published you can use to compare with previous messages.
   *
-  * An instance has to be contructed explicitly and pass it to `withDeduplication`
-  * in the producer settings. It could be a typeclass but it makes things awkward
-  * when deduplication is not required.
-  *
-  * You can either build one via either the `fromEq` or the `instance` constructors.
+  * Users are responsible for keeping track of their messages, and return (lastSeqId + 1) when
+  * the message is unique, or simply `lastSeqId` when it's a duplicate.
   */
-trait SeqIdMaker[A] {
-  def next(prevId: Long, prevPayload: Option[A], payload: A): Long
+trait SeqIdMaker[F[_], A] {
+  def make(lastSeqId: Long, currentMsg: A): F[Long]
 }
 
 object SeqIdMaker {
 
   /**
-    * Creates an instance using the given Eq[A] instance to determine whether
-    * two values of type A are equal.
+    * Creates an instance using the given 'make' function'.
     */
-  def fromEq[A: Eq]: SeqIdMaker[A] = new SeqIdMaker[A] {
-    def next(prevId: Long, prevPayload: Option[A], payload: A): Long =
-      prevPayload match {
-        case Some(p) if p === payload => prevId
-        case _                        => prevId + 1L
-      }
-  }
-
-  /**
-    * Creates an instance using the comparison function to determine whether
-    * two values of type A are equal.
-    */
-  def instance[A](f: (A, A) => Boolean): SeqIdMaker[A] = fromEq[A](Eq.instance(f))
+  def instance[F[_], A](f: (Long, A) => F[Long]): SeqIdMaker[F, A] =
+    new SeqIdMaker[F, A] {
+      def make(lastSeqId: Long, currentMsg: A): F[Long] = f(lastSeqId, currentMsg)
+    }
 }
