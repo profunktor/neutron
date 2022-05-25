@@ -77,8 +77,8 @@ In a nutshell, the deduplication mechanism is based on sequence ids, which can b
 To make things smoother, Neutron internally manages the creation of new sequence ids via the following interface.
 
 ```scala mdoc
-trait SeqIdMaker[F[_]] {
-  def make(lastSeqId: Long): F[Long]
+trait SeqIdMaker[F[_], A] {
+  def make(lastSeqId: Long, currentMsg: A): F[Long]
 }
 ```
 
@@ -87,8 +87,9 @@ Users are responsible for keeping track of their messages (usually by an `EventI
 You may use the `instance` constructor as follows:
 
 ```scala mdoc
-val seqIdMaker = SeqIdMaker.instance[IO] { lastSeqId =>
-  IO.pure(lastSeqId + 1) // replace with your logic
+val seqIdMaker = SeqIdMaker.instance[IO, String] { (lastSeqId, msg) =>
+  // use `msg` to compare it to previous messages and determine SeqId
+  IO.pure(lastSeqId + 1)
 }
 ```
 

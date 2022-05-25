@@ -66,10 +66,10 @@ object Producer {
     case object Disabled extends Batching
   }
 
-  sealed trait Deduplication[F[_]]
+  sealed trait Deduplication[F[_], +A]
   object Deduplication {
-    case class Disabled[F[_]]() extends Deduplication[F]
-    case class Enabled[F[_]](seqIdMaker: SeqIdMaker[F]) extends Deduplication[F]
+    case class Disabled[F[_]]() extends Deduplication[F, Nothing]
+    case class Enabled[F[_], E](seqIdMaker: SeqIdMaker[F, E]) extends Deduplication[F, E]
   }
 
   /**
@@ -185,9 +185,12 @@ object Producer {
 
       settings.deduplication match {
         case Deduplication.Enabled(seqIdMaker) =>
-          seqIdMaker.make(p.getLastSequenceId()).flatMap { nextId =>
-            cont(_.sequenceId(nextId))
-          }
+          seqIdMaker
+            .asInstanceOf[SeqIdMaker[F, E]]
+            .make(p.getLastSequenceId(), msg)
+            .flatMap { nextId =>
+              cont(_.sequenceId(nextId))
+            }
         case Deduplication.Disabled() =>
           cont(identity)
       }
@@ -258,7 +261,7 @@ object Producer {
     val logger: E => Topic.URL => F[Unit]
     val messageEncoder: Option[E => Array[Byte]]
     val schema: Option[Schema[E]]
-    val deduplication: Deduplication[F]
+    val deduplication: Deduplication[F, E]
     val unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     def withBatching(_batching: Batching): Settings[F, E]
     def withMessageKey(_msgKey: E => MessageKey): Settings[F, E]
@@ -274,14 +277,14 @@ object Producer {
       * Example:
       *
       * {{{
-      *  val maker = SeqIdMaker.instance[IO](
-      *    lastSeqId => IO.pure(lastSeqId + 1)
+      *  val maker = SeqIdMaker.instance[IO, String](
+      *    (lastSeqId, msg) => IO.pure(lastSeqId + 1)
       *  )
       *
       *  Producer.Settings[IO, String]().withDeduplication(maker)
       * }}}
       */
-    def withDeduplication(seqIdMaker: SeqIdMaker[F]): Settings[F, E]
+    def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E]
 
     /**
       * USE THIS ONE WITH CAUTION!
@@ -316,14 +319,14 @@ object Producer {
         logger: E => Topic.URL => F[Unit],
         messageEncoder: Option[E => Array[Byte]],
         schema: Option[Schema[E]],
-        deduplication: Deduplication[F],
+        deduplication: Deduplication[F, E],
         unsafeOps: ProducerBuilder[Any] => ProducerBuilder[Any]
     ) extends Settings[F, E] {
       override def withName(_name: String): Settings[F, E] =
         copy(name = Some(_name))
       override def withBatching(_batching: Batching): Settings[F, E] =
         copy(batching = _batching)
-      override def withDeduplication(seqIdMaker: SeqIdMaker[F]): Settings[F, E] =
+      override def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E] =
         copy(deduplication = Deduplication.Enabled(seqIdMaker))
       override def withMessageKey(_msgKey: E => MessageKey): Settings[F, E] =
         copy(messageKey = _msgKey)

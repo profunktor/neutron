@@ -20,12 +20,13 @@ package dev.profunktor.pulsar
   * Dictates how `sequenceId`s (used for deduplication) are generated based on:
   *
   * - A previous sequence id (-1 if there are no previous messages).
+  * - A message to be published you can use to compare with previous messages.
   *
   * Users are responsible for keeping track of their messages, and return (lastSeqId + 1) when
   * the message is unique, or simply `lastSeqId` when it's a duplicate.
   */
-trait SeqIdMaker[F[_]] {
-  def make(lastSeqId: Long): F[Long]
+trait SeqIdMaker[F[_], A] {
+  def make(lastSeqId: Long, currentMsg: A): F[Long]
 }
 
 object SeqIdMaker {
@@ -33,7 +34,8 @@ object SeqIdMaker {
   /**
     * Creates an instance using the given 'make' function'.
     */
-  def instance[F[_]](f: Long => F[Long]): SeqIdMaker[F] = new SeqIdMaker[F] {
-    def make(lastSeqId: Long): F[Long] = f(lastSeqId)
-  }
+  def instance[F[_], A](f: (Long, A) => F[Long]): SeqIdMaker[F, A] =
+    new SeqIdMaker[F, A] {
+      def make(lastSeqId: Long, currentMsg: A): F[Long] = f(lastSeqId, currentMsg)
+    }
 }
