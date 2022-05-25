@@ -48,7 +48,7 @@ object DeduplicationSuite extends IOSuite {
   def mkSeqIdMaker: IO[SeqIdMaker[IO, String]] =
     Ref.of[IO, Seq[String]](Seq.empty).map { ref =>
       SeqIdMaker.instance { (lastSeqId, msg) =>
-        ref.getAndUpdate(_ +: msg).map { xs =>
+        ref.getAndUpdate(_ :+ msg).map { xs =>
           if (xs.contains(msg)) lastSeqId else lastSeqId + 1
         }
       }
