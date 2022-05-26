@@ -205,6 +205,7 @@ trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
   def send(msg: E, properties: Map[String, String]): F[MessageId]
   def stats: F[ProducerStats]
+  def lastSequenceId: F[Long]
 }
 </code></pre>
 <p>As well as the <code>send_</code> equivalent that discards the <code>MessageId</code> and returns <code>F[Unit]</code>. We will expand on its methods in the next few sections.</p>
