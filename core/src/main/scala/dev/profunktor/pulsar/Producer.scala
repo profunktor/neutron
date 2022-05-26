@@ -53,9 +53,14 @@ trait Producer[F[_], E] {
   def send_(msg: E, properties: Map[String, String]): F[Unit]
 
   /**
-    * Retrieves the `ProducerStats` synchronously (blocking call).
+    * Returns the `ProducerStats` synchronously (blocking call).
     */
   def stats: F[ProducerStats]
+
+  /**
+    * Returns the last sequence ID (mainly used for deduplication).
+    */
+  def lastSequenceId: F[Long]
 }
 
 object Producer {
@@ -226,6 +231,9 @@ object Producer {
 
             override def stats: F[ProducerStats] =
               Sync[F].blocking(p.getStats())
+
+            override def lastSequenceId: F[Long] =
+              Sync[F].delay(p.getLastSequenceId())
           }
 
         case Right(p) =>
@@ -247,6 +255,9 @@ object Producer {
 
               override def stats: F[ProducerStats] =
                 Sync[F].blocking(p.getStats())
+
+              override def lastSequenceId: F[Long] =
+                Sync[F].delay(p.getLastSequenceId())
             }
           }
       }
