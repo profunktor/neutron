@@ -11,6 +11,7 @@ trait Producer[F[_], E] {
   def send(msg: E): F[MessageId]
   def send(msg: E, properties: Map[String, String]): F[MessageId]
   def stats: F[ProducerStats]
+  def lastSequenceId: F[Long]
 }
 ```
 
