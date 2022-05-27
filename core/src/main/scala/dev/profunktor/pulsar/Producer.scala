@@ -281,6 +281,8 @@ object Producer {
     def withLogger(_logger: E => Topic.URL => F[Unit]): Settings[F, E]
 
     /**
+      * Enables deduplication with a custom message SequenceId maker.
+      *
       * Remember to enable deduplication on the broker too.
       *
       * See: https://pulsar.apache.org/docs/en/cookbooks-deduplication/

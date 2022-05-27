@@ -45,6 +45,7 @@ object DeduplicationSuite extends IOSuite {
 
   val utf8 = PulsarSchema.utf8
 
+  // Keeping track of duplicate messages on the producer side
   def mkSeqIdMaker: IO[SeqIdMaker[IO, String]] =
     Ref.of[IO, Seq[String]](Seq.empty).map { ref =>
       SeqIdMaker.instance { (lastSeqId, msg) =>
@@ -55,7 +56,10 @@ object DeduplicationSuite extends IOSuite {
     }
 
   def pSettings(seqIdMaker: SeqIdMaker[IO, String]) =
-    Producer.Settings[IO, String]().withDeduplication(seqIdMaker)
+    Producer
+      .Settings[IO, String]()
+      .withName("dedup-producer")
+      .withDeduplication(seqIdMaker)
 
   def showStats(s: ProducerStats): IO[Unit] = IO.println {
     s"""
@@ -68,8 +72,8 @@ object DeduplicationSuite extends IOSuite {
      """
   }
 
-  test("Producer deduplicates messages") { client =>
-    val res: Resource[IO, (Consumer[IO, String], Producer[IO, String])] =
+  test("Producer deduplicates messages using custom SeqIdMaker") { client =>
+    val res =
       for {
         m <- Resource.eval(mkSeqIdMaker)
         p <- Producer.make[IO, String](client, topic, utf8, pSettings(m))
@@ -84,8 +88,9 @@ object DeduplicationSuite extends IOSuite {
             case (c, p) =>
               val consume =
                 c.subscribe.evalMap {
-                  case Consumer.Message(id, _, _, _, payload) =>
+                  case Consumer.Message(id, _, _, raw, payload) =>
                     for {
+                      _ <- IO.println(s"Seq-Id: ${raw.getSequenceId()} - $payload")
                       _ <- ref.update(_ :+ payload)
                       _ <- c.ack(id)
                       _ <- latch.complete(()).whenA(payload == "c")
