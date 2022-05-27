@@ -75,6 +75,7 @@ object Producer {
   object Deduplication {
     case class Disabled[F[_]]() extends Deduplication[F, Nothing]
     case class Enabled[F[_], E](seqIdMaker: SeqIdMaker[F, E]) extends Deduplication[F, E]
+    case class Native[F[_]]() extends Deduplication[F, Nothing]
   }
 
   /**
@@ -151,7 +152,8 @@ object Producer {
     ): ProducerBuilder[A] =
       settings.deduplication match {
         case Deduplication.Disabled() => builder
-        case Deduplication.Enabled(_) => builder.sendTimeout(0, TimeUnit.SECONDS)
+        case Deduplication.Enabled(_) | Deduplication.Native() =>
+          builder.sendTimeout(0, TimeUnit.SECONDS)
       }
 
     def unsafeConf[A](
@@ -196,7 +198,7 @@ object Producer {
             .flatMap { nextId =>
               cont(_.sequenceId(nextId))
             }
-        case Deduplication.Disabled() =>
+        case Deduplication.Disabled() | Deduplication.Native() =>
           cont(identity)
       }
     }
@@ -300,6 +302,15 @@ object Producer {
     def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E]
 
     /**
+      * Enables deduplication using the default Pulsar SequenceId maker.
+      *
+      * Remember to enable deduplication on the broker too.
+      *
+      * See: https://pulsar.apache.org/docs/en/cookbooks-deduplication/
+      */
+    def withDeduplication: Settings[F, E]
+
+    /**
       * USE THIS ONE WITH CAUTION!
       *
       * In case Neutron does not yet support what you're looking for, there is a big chance
@@ -341,6 +352,8 @@ object Producer {
         copy(batching = _batching)
       override def withDeduplication(seqIdMaker: SeqIdMaker[F, E]): Settings[F, E] =
         copy(deduplication = Deduplication.Enabled(seqIdMaker))
+      override def withDeduplication: Settings[F, E] =
+        copy(deduplication = Deduplication.Native())
       override def withMessageKey(_msgKey: E => MessageKey): Settings[F, E] =
         copy(messageKey = _msgKey)
       override def withShardKey(_shardKey: E => ShardKey): Settings[F, E] =
