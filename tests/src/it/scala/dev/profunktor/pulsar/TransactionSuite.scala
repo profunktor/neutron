@@ -19,7 +19,7 @@ package dev.profunktor.pulsar
 import scala.concurrent.duration._
 
 import dev.profunktor.pulsar.schema.PulsarSchema
-import dev.profunktor.pulsar.transactions.{ PulsarTx, Tx }
+import dev.profunktor.pulsar.transactions.PulsarTx
 
 import cats.effect._
 import cats.syntax.all._
@@ -61,11 +61,14 @@ object TransactionSuite extends IOSuite {
       .withType(Topic.Type.Persistent)
       .build
 
+  // Sets sendTimeout(0, TimeUnit.SECONDS), needed for transactional publishing.
+  val pSettings = Producer.Settings[IO, String]().withDeduplication
+
   val utf8 = PulsarSchema.utf8
 
   def baseTest(
       id: Int,
-      txResult: (Consumer[IO, String], Ref[IO, Set[MessageId]], Tx) => IO[Unit],
+      txResult: IO[Unit],
       client: Res,
       onError: (Throwable, SourceLocation) => Expectations
   ): IO[Expectations] = {
@@ -73,8 +76,8 @@ object TransactionSuite extends IOSuite {
 
     val res =
       for {
-        pi <- Producer.make[IO, String](client, topicIn(id), utf8)
-        po <- Producer.make[IO, String](client, topicOut(id), utf8)
+        pi <- Producer.make[IO, String](client, topicIn(id), utf8, pSettings)
+        po <- Producer.make[IO, String](client, topicOut(id), utf8, pSettings)
         ci <- Consumer.make[IO, String](client, topicIn(id), subIn(id), utf8)
         co <- Consumer.make[IO, String](client, topicOut(id), subOut(id), utf8)
       } yield (pi, po, ci, co)
@@ -89,43 +92,43 @@ object TransactionSuite extends IOSuite {
           .resource(res)
           .flatMap {
             case (pi, po, ci, co) =>
-              Stream.resource(mkTx).flatMap { tx =>
-                val consumeInputs =
-                  ci.subscribe.evalMap {
-                    case Consumer.Message(id, _, _, _, payload) =>
+              val consumeInputs =
+                ci.subscribe.evalMap {
+                  case Consumer.Message(id, _, _, _, payload) =>
+                    mkTx.use { tx =>
                       for {
                         _ <- ref.update(_ :+ payload)
                         _ <- ids.update(_ + id)
-                        _ <- po.send_(s"$payload-out")
+                        _ <- po.send_(s"$payload-out", tx)
+                        _ <- txResult
+                        _ <- ci.ack(id, tx)
                       } yield ()
-                  }
-
-                val consumeOutputs =
-                  co.subscribe.evalMap {
-                    case Consumer.Message(id, _, _, _, payload) =>
-                      ref.update(_ :+ payload) *> co.ack(id) *>
-                          latch.complete(()).whenA(payload == "c-out")
-                  }
-
-                val events   = List("a", "b", "c")
-                val expected = (events ++ events.map(x => s"$x-out")).sorted
-
-                val produceInputs =
-                  Stream.emits(events).evalMap(pi.send_) ++ Stream.eval {
-                        latch.get *> txResult(ci, ids, tx)
-                      }
-
-                produceInputs
-                  .concurrently {
-                    Stream(consumeInputs, consumeOutputs).parJoin(2)
-                  }
-                  .drain
-                  .append {
-                    Stream.eval(ref.get).map { e =>
-                      expect.same(e.sorted, expected)
                     }
+                }
+
+              val consumeOutputs =
+                co.subscribe.evalMap {
+                  case Consumer.Message(id, _, _, _, payload) =>
+                    ref.update(_ :+ payload) *> co.ack(id) *>
+                        latch.complete(()).whenA(payload == "c-out")
+                }
+
+              val events   = List("a", "b", "c")
+              val expected = (events ++ events.map(x => s"$x-out")).sorted
+
+              val produceInputs =
+                Stream.emits(events).evalMap(pi.send_) ++ Stream.eval(latch.get)
+
+              produceInputs
+                .concurrently {
+                  Stream(consumeInputs, consumeOutputs).parJoin(2)
+                }
+                .drain
+                .append {
+                  Stream.eval(ref.get).map { e =>
+                    expect.same(e.sorted, expected)
                   }
-              }
+                }
           }
           .compile
           .lastOrError
@@ -136,7 +139,7 @@ object TransactionSuite extends IOSuite {
   test("Consume-process-produce within a SUCCESSFUL transaction") { cli =>
     baseTest(
       id = 1,
-      txResult = (ci, ids, tx) => ids.get.flatMap(_.toList.traverse_(ci.ack(_, tx))),
+      txResult = IO.unit,
       client = cli,
       onError = (e, pos) => failure(e.getMessage())(pos)
     )
@@ -145,7 +148,7 @@ object TransactionSuite extends IOSuite {
   test("Consume-process-produce within a FAILED transaction") { cli =>
     baseTest(
       id = 2,
-      txResult = (_, _, _) => IO.raiseError(new Exception("abort tx")),
+      txResult = IO.raiseError(new Exception("abort tx")),
       client = cli,
       onError = (_, _) => success
     )

@@ -23,6 +23,7 @@ import scala.jdk.CollectionConverters._
 
 import dev.profunktor.pulsar.internal.FutureLift
 import dev.profunktor.pulsar.internal.TypedMessageBuilderOps._
+import dev.profunktor.pulsar.transactions.Tx
 
 import cats._
 import cats.effect._
@@ -43,6 +44,16 @@ trait Producer[F[_], E] {
   def send(msg: E, properties: Map[String, String]): F[MessageId]
 
   /**
+    * Sends a message asynchronously within a transaction.
+    */
+  def send(msg: E, tx: Tx): F[MessageId]
+
+  /**
+    * Sends a message associated with a set of properties asynchronously within a transaction.
+    */
+  def send(msg: E, properties: Map[String, String], tx: Tx): F[MessageId]
+
+  /**
     * Same as [[send(msg:E)*]] but it discards its output.
     */
   def send_(msg: E): F[Unit]
@@ -51,6 +62,16 @@ trait Producer[F[_], E] {
     * Same as `send(msg:E,properties:Map[String, String])` but it discards its output.
     */
   def send_(msg: E, properties: Map[String, String]): F[Unit]
+
+  /**
+    * Same as [[send(msg:E)*]] but it discards its output.
+    */
+  def send_(msg: E, tx: Tx): F[Unit]
+
+  /**
+    * Same as `send(msg:E,properties:Map[String, String])` but it discards its output.
+    */
+  def send_(msg: E, properties: Map[String, String], tx: Tx): F[Unit]
 
   /**
     * Returns the `ProducerStats` synchronously (blocking call).
@@ -174,6 +195,7 @@ object Producer {
         p: JProducer[A],
         msg: E,
         enc: E => A,
+        maybeTx: Option[Tx],
         properties: Map[String, String]
     ): F[MessageId] = {
       val _msg = enc(msg)
@@ -181,8 +203,13 @@ object Producer {
       def cont(f: TypedMessageBuilder[A] => TypedMessageBuilder[A]) =
         settings.logger(msg)(topic.url) &>
             FutureLift[F].futureLift {
+              val builder = maybeTx match {
+                case Some(Tx.Underlying(tx)) => p.newMessage(tx)
+                case _                       => p.newMessage()
+              }
+
               f(
-                p.newMessage()
+                builder
                   .value(_msg)
                   .properties(properties.asJava)
                   .withShardKey(settings.shardKey(msg))
@@ -221,15 +248,28 @@ object Producer {
       .map {
         case Left(p) =>
           new Producer[F, E] {
-            override def send(msg: E): F[MessageId] = send(msg, Map.empty)
+            override def send(msg: E): F[MessageId] =
+              sendMessage[E](p, msg, identity, None, Map.empty)
 
             override def send_(msg: E): F[Unit] = send(msg).void
 
+            override def send(msg: E, tx: Tx): F[MessageId] =
+              sendMessage[E](p, msg, identity, Some(tx), Map.empty)
+
+            override def send_(msg: E, tx: Tx): F[Unit] = send(msg, tx).void
+
+            override def send(msg: E, properties: Map[String, String], tx: Tx)
+                : F[MessageId] =
+              sendMessage[E](p, msg, identity, Some(tx), properties)
+
             override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-              sendMessage[E](p, msg, identity, properties)
+              sendMessage[E](p, msg, identity, None, properties)
 
             override def send_(msg: E, properties: Map[String, String]): F[Unit] =
               send(msg, properties).void
+
+            override def send_(msg: E, properties: Map[String, String], tx: Tx): F[Unit] =
+              send(msg, properties, tx).void
 
             override def stats: F[ProducerStats] =
               Sync[F].blocking(p.getStats())
@@ -245,15 +285,29 @@ object Producer {
             )
           ) { enc =>
             new Producer[F, E] {
-              override def send(msg: E): F[MessageId] = send(msg, Map.empty)
+              override def send(msg: E): F[MessageId] =
+                sendMessage[Array[Byte]](p, msg, enc, None, Map.empty)
 
               override def send_(msg: E): F[Unit] = send(msg).void
 
+              override def send(msg: E, tx: Tx): F[MessageId] =
+                sendMessage[Array[Byte]](p, msg, enc, Some(tx), Map.empty)
+
+              override def send_(msg: E, tx: Tx): F[Unit] = send(msg, tx).void
+
+              override def send(msg: E, properties: Map[String, String], tx: Tx)
+                  : F[MessageId] =
+                sendMessage[Array[Byte]](p, msg, enc, Some(tx), properties)
+
               override def send(msg: E, properties: Map[String, String]): F[MessageId] =
-                sendMessage[Array[Byte]](p, msg, enc, properties)
+                sendMessage[Array[Byte]](p, msg, enc, None, properties)
 
               override def send_(msg: E, properties: Map[String, String]): F[Unit] =
                 send(msg, properties).void
+
+              override def send_(msg: E, properties: Map[String, String], tx: Tx)
+                  : F[Unit] =
+                send(msg, properties, tx).void
 
               override def stats: F[ProducerStats] =
                 Sync[F].blocking(p.getStats())
