@@ -96,7 +96,7 @@ object TransactionSuite extends IOSuite {
                       for {
                         _ <- ref.update(_ :+ payload)
                         _ <- ids.update(_ + id)
-                        _ <- po.send_(s"$payload-out")
+                        _ <- po.send_(s"$payload-out", tx)
                       } yield ()
                   }
 
@@ -111,7 +111,7 @@ object TransactionSuite extends IOSuite {
                 val expected = (events ++ events.map(x => s"$x-out")).sorted
 
                 val produceInputs =
-                  Stream.emits(events).evalMap(pi.send_) ++ Stream.eval {
+                  Stream.emits(events).evalMap(e => pi.send_(e, tx)) ++ Stream.eval {
                         latch.get *> txResult(ci, ids, tx)
                       }
 
