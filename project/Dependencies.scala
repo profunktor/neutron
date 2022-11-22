@@ -5,12 +5,12 @@ object Dependencies {
   object V {
     val avro4s_2   = "4.1.0"
     val avro4s_3   = "5.0.3"
-    val cats       = "2.8.0"
-    val catsEffect = "3.3.14"
+    val cats       = "2.9.0"
+    val catsEffect = "3.4.1"
     val circe      = "0.14.3"
-    val fs2        = "3.3.0"
-    val pulsar     = "2.10.2"
-    val weaver     = "0.8.0"
+    val fs2        = "3.4.0"
+    val pulsar     = "2.10.1"
+    val weaver     = "0.8.1"
 
     val kindProjector   = "0.13.2"
     val organizeImports = "0.5.0"
