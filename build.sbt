@@ -24,7 +24,7 @@ ThisBuild / developers := List(
 
 ThisBuild / scalafixDependencies += Libraries.organizeImports
 
-resolvers += Resolver.sonatypeRepo("snapshots")
+resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 Compile / run / fork := true
 Global / semanticdbEnabled := true
