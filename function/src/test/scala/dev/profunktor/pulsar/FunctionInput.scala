@@ -31,6 +31,7 @@ import org.apache.pulsar.functions.api.{
   StateStore,
   WindowContext => JavaWindowContext
 }
+import org.apache.pulsar.functions.api.utils.FunctionRecord
 import org.slf4j.Logger
 
 object FunctionInput {
@@ -114,6 +115,9 @@ object FunctionInput {
         name: String
     ): S                                     = ???
     override def getPulsarAdmin: PulsarAdmin = ???
+    override def newOutputRecordBuilder[O](
+        schema: Schema[O]
+    ): FunctionRecord.FunctionRecordBuilder[O] = ???
   }
 
   def input[A](seq: Seq[A]): util.Collection[JavaRecord[A]] = {
