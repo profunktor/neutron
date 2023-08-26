@@ -1,6 +1,6 @@
 import Dependencies._
 
-val scala2 = "2.13.10"
+val scala2 = "2.13.11"
 val scala3 = "3.2.2"
 
 ThisBuild / scalaVersion := scala2
