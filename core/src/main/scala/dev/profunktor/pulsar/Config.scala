@@ -46,7 +46,7 @@ object Config {
     type Mandatory = Empty with Namespace with Tenant with URL
   }
 
-  case class ConfigBuilder[I <: Info] protected (
+  case class ConfigBuilder[I <: Info] private[pulsar] (
       _tenant: PulsarTenant = PulsarTenant(""),
       _namespace: PulsarNamespace = PulsarNamespace(""),
       _url: PulsarURL = PulsarURL("")

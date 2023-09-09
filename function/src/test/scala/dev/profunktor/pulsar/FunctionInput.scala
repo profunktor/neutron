@@ -25,13 +25,13 @@ import scala.jdk.CollectionConverters._
 
 import org.apache.pulsar.client.admin.PulsarAdmin
 import org.apache.pulsar.client.api.{ ConsumerBuilder, Schema, TypedMessageBuilder }
+import org.apache.pulsar.functions.api.utils.FunctionRecord
 import org.apache.pulsar.functions.api.{
   Context => JavaContext,
   Record => JavaRecord,
-  StateStore,
-  WindowContext => JavaWindowContext
+  WindowContext => JavaWindowContext,
+  _
 }
-import org.apache.pulsar.functions.api.utils.FunctionRecord
 import org.slf4j.Logger
 
 object FunctionInput {

@@ -84,7 +84,7 @@ object Subscription {
     type Mandatory = Empty with Name with Mode with Type
   }
 
-  case class SubscriptionBuilder[I <: Info] protected (
+  case class SubscriptionBuilder[I <: Info] private[pulsar] (
       _name: Name = Name(""),
       _type: Type = Type.Exclusive,
       _mode: Mode = Mode.Durable

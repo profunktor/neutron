@@ -89,7 +89,7 @@ object Topic {
     type MultiMandatory  = Empty with Config with Pattern with Type
   }
 
-  case class TopicBuilder[I <: Info] protected (
+  case class TopicBuilder[I <: Info] private[pulsar] (
       _name: Either[Name, NamePattern] = Name("").asLeft,
       _config: Config = Config.Builder.default,
       _type: Type = Type.Persistent
