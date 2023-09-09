@@ -285,7 +285,10 @@ object Consumer {
             override def nack(id: MessageId): F[Unit] =
               Sync[F].blocking(c.negativeAcknowledge(id))
             override def lastMessageId: F[Option[MessageId]] =
-              F.futureLift(c.getLastMessageIdAsync()).attempt.map(_.toOption)
+              F.futureLift(c.getLastMessageIdsAsync())
+                .map(_.asScala.toList.filter(_.getOwnerTopic() == topic.show).headOption)
+                .attempt
+                .map(_.toOption.flatten)
             override def unsubscribe: F[Unit] =
               F.futureLift(c.unsubscribeAsync()).void
             override def subscribe: Stream[F, Message[E]] =
@@ -318,7 +321,12 @@ object Consumer {
               override def nack(id: MessageId): F[Unit] =
                 Sync[F].blocking(c.negativeAcknowledge(id))
               override def lastMessageId: F[Option[MessageId]] =
-                F.futureLift(c.getLastMessageIdAsync()).attempt.map(_.toOption)
+                F.futureLift(c.getLastMessageIdsAsync())
+                  .map(
+                    _.asScala.toList.filter(_.getOwnerTopic() == topic.show).headOption
+                  )
+                  .attempt
+                  .map(_.toOption.flatten)
               override def unsubscribe: F[Unit] =
                 F.futureLift(c.unsubscribeAsync()).void
               override def subscribe: Stream[F, Message[E]] =

@@ -21,6 +21,7 @@ import java.util
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -35,6 +36,7 @@ import org.slf4j.Logger
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
 
+@nowarn
 object WindowContextSuite extends SimpleIOSuite with Checkers {
   test("WindowContext mapping of fields is correct") {
     forall {

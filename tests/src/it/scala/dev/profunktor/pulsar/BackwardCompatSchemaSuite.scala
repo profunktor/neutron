@@ -64,7 +64,7 @@ object BackwardCompatSchemaSuite extends IOSuite {
           consumer <- Consumer.make[IO, Event_V2](client, topic, sub("circe"), schema_v2)
         } yield consumer -> producer
 
-      ignore("FIXME: Not working on Scala 3") >> (
+      ignore("FIXME: Figure out why this doesn't work after upgrading to Scala 3") >> (
         Ref.of[IO, Int](0),
         Deferred[IO, Event_V2]
       ).tupled.flatMap {
