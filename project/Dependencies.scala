@@ -10,7 +10,7 @@ object Dependencies {
     val circe      = "0.14.6"
     val fs2        = "3.9.4"
     val pulsar     = "3.1.2"
-    val weaver     = "0.8.3"
+    val weaver     = "0.8.4"
 
     val kindProjector   = "0.13.2"
     val organizeImports = "0.5.0"
