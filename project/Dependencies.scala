@@ -9,7 +9,7 @@ object Dependencies {
     val catsEffect = "3.5.4"
     val circe      = "0.14.9"
     val fs2        = "3.10.2"
-    val pulsar     = "3.1.3"
+    val pulsar     = "3.3.4"
     val weaver     = "0.8.4"
 
     val kindProjector   = "0.13.3"
