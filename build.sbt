@@ -12,12 +12,13 @@ ThisBuild / licenses := List(
 )
 ThisBuild / crossScalaVersions := List(scala2, scala3)
 ThisBuild / startYear := Some(2021)
+ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost
 
 ThisBuild / developers := List(
   Developer(
     "gvolpe",
     "Gabriel Volpe",
-    "volpegabriel@gmail.com",
+    "profunktor@gvolpe.addy.io",
     url("https://gvolpe.com")
   )
 )

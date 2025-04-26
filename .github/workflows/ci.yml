@@ -10,10 +10,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java:
-          - jdk17
 
     steps:
       - uses: actions/checkout@v2.3.2
@@ -25,10 +21,16 @@ jobs:
         uses: coursier/cache-action@v4.1
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v22
+        uses: cachix/install-nix-action@v31.2.0
+
+      - name: "Install Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        with:
+          name: profunktor
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Run neutron tests 🚀"
-        run: nix develop -c sbt 'IntegrationTest/test;++test;makeSite;doc'
+        run: nix run .#sbt -- 'IntegrationTest/test;++test;makeSite;doc'
 
       - name: "Shutting down Pulsar 🐳"
         run: docker-compose down
