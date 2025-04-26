@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-docker-compose up -d
+docker compose up -d
 
 # wait for a container to be healthy
 MAX_HEALTH_CHECK_TRIES=20
@@ -29,32 +29,32 @@ wait_for_pulsar(){
 wait_for_pulsar
 
 echo "Creating the public/neutron namespace"
-docker-compose exec -T pulsar bin/pulsar-admin namespaces create public/neutron
+docker compose exec -T pulsar bin/pulsar-admin namespaces create public/neutron
 
 echo "Setting BACKWARD schema compatibility strategy for the public/neutron namespace"
-docker-compose exec -T pulsar bin/pulsar-admin namespaces set-schema-compatibility-strategy -c BACKWARD public/neutron
+docker compose exec -T pulsar bin/pulsar-admin namespaces set-schema-compatibility-strategy -c BACKWARD public/neutron
 
 echo "Creating the public/nope namespace"
-docker-compose exec -T pulsar bin/pulsar-admin namespaces create public/nope
+docker compose exec -T pulsar bin/pulsar-admin namespaces create public/nope
 
 echo "Setting ALWAYS_INCOMPATIBLE schema compatibility strategy for the public/nope namespace"
-docker-compose exec -T pulsar bin/pulsar-admin namespaces set-schema-compatibility-strategy -c ALWAYS_INCOMPATIBLE public/nope
+docker compose exec -T pulsar bin/pulsar-admin namespaces set-schema-compatibility-strategy -c ALWAYS_INCOMPATIBLE public/nope
 
 echo "Creating 'dedup' topic"
-docker-compose exec -T pulsar bin/pulsar-admin topics create persistent://public/default/dedup
+docker compose exec -T pulsar bin/pulsar-admin topics create persistent://public/default/dedup
 
 echo "Enabling deduplication on 'dedup' topic"
-docker-compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
+docker compose exec -T pulsar bin/pulsar-admin topics enable-deduplication dedup
 
 #echo "Running deduplication checks"
-#docker-compose exec -T pulsar bin/pulsar-admin topics get-deduplication persistent://public/default/dedup
+#docker compose exec -T pulsar bin/pulsar-admin topics get-deduplication persistent://public/default/dedup
 
 #echo "standalone.conf values"
-#docker-compose exec -T pulsar cat conf/standalone.conf | grep 'topicLevelPolicies'
-#docker-compose exec -T pulsar cat conf/standalone.conf | grep 'systemTopic'
+#docker compose exec -T pulsar cat conf/standalone.conf | grep 'topicLevelPolicies'
+#docker compose exec -T pulsar cat conf/standalone.conf | grep 'systemTopic'
 
 #echo "broker.conf values"
-#docker-compose exec -T pulsar cat conf/broker.conf | grep 'topicLevelPolicies'
-#docker-compose exec -T pulsar cat conf/broker.conf | grep 'systemTopic'
+#docker compose exec -T pulsar cat conf/broker.conf | grep 'topicLevelPolicies'
+#docker compose exec -T pulsar cat conf/broker.conf | grep 'systemTopic'
 
 echo "Done"
