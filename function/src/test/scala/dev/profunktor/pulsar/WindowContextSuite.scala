@@ -21,7 +21,6 @@ import java.util
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
-import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -36,7 +35,6 @@ import org.slf4j.Logger
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
 
-@nowarn
 object WindowContextSuite extends SimpleIOSuite with Checkers {
   test("WindowContext mapping of fields is correct") {
     forall {
@@ -180,7 +178,7 @@ object WindowContextSuite extends SimpleIOSuite with Checkers {
           override def getOutputSchemaType: String             = ???
           override def getLogger: Logger                       = ???
           override def incrCounter(key: String, amount: Long): Unit = {
-            counters.put(key, getCounter(key) + amount)
+            val _ = counters.put(key, getCounter(key) + amount)
             ()
           }
 
@@ -247,7 +245,7 @@ object WindowContextSuite extends SimpleIOSuite with Checkers {
           override def incrCounter(key: String, amount: Long): Unit = ???
           override def getCounter(key: String): Long                = ???
           override def putState(key: String, value: ByteBuffer): Unit = {
-            state.put(key, value)
+            val _ = state.put(key, value)
             ()
           }
           override def getState(key: String): ByteBuffer                 = state.getOrElse(key, null)
