@@ -16,6 +16,8 @@
 
 package dev.profunktor.pulsar
 
+import scala.annotation.nowarn
+
 import dev.profunktor.pulsar.schema.PulsarSchema
 
 import cats.effect._
@@ -61,6 +63,7 @@ object DeduplicationSuite extends IOSuite {
       .withName("dedup-producer")
       .withDeduplication(seqIdMaker)
 
+  @nowarn
   def showStats(s: ProducerStats): IO[Unit] = IO.println {
     s"""
        ++++++++++++++++++++++++++++++++
