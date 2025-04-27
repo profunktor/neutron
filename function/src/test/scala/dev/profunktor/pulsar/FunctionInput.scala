@@ -118,6 +118,7 @@ object FunctionInput {
     override def newOutputRecordBuilder[O](
         schema: Schema[O]
     ): FunctionRecord.FunctionRecordBuilder[O] = ???
+    override def fatal(t: Throwable): Unit     = ???
   }
 
   def input[A](seq: Seq[A]): util.Collection[JavaRecord[A]] = {

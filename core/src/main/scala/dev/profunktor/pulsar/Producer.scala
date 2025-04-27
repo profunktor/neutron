@@ -76,6 +76,7 @@ trait Producer[F[_], E] {
   /**
     * Returns the `ProducerStats` synchronously (blocking call).
     */
+  @deprecated("Use `Pulsar.withOpenTelemetry(...)` instead", since = "v0.9.0")
   def stats: F[ProducerStats]
 
   /**
@@ -271,6 +272,7 @@ object Producer {
             override def send_(msg: E, properties: Map[String, String], tx: Tx): F[Unit] =
               send(msg, properties, tx).void
 
+            @deprecated("Use `Pulsar.withOpenTelemetry(...)` instead", since = "v0.9.0")
             override def stats: F[ProducerStats] =
               Sync[F].blocking(p.getStats())
 
@@ -309,6 +311,7 @@ object Producer {
                   : F[Unit] =
                 send(msg, properties, tx).void
 
+              @deprecated("Use `Pulsar.withOpenTelemetry(...)` instead", since = "v0.9.0")
               override def stats: F[ProducerStats] =
                 Sync[F].blocking(p.getStats())
 

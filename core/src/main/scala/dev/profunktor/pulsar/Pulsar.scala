@@ -21,6 +21,7 @@ import scala.concurrent.duration.{ FiniteDuration, _ }
 import dev.profunktor.pulsar.Pulsar.Settings.{ ConnectionTimeout, OperationTimeout }
 
 import cats.effect.kernel.{ Resource, Sync }
+import io.opentelemetry.api.OpenTelemetry
 import org.apache.pulsar.client.api.{ PulsarClient => Underlying }
 
 object Pulsar {
@@ -51,6 +52,7 @@ object Pulsar {
             settings.operationTimeout.value.unit
           )
           .enableTransaction(settings.txEnabled)
+          .openTelemetry(settings.openTelemetry)
           .build
       )
     )
@@ -59,6 +61,7 @@ object Pulsar {
     val connectionTimeout: ConnectionTimeout
     val operationTimeout: OperationTimeout
     val txEnabled: Boolean
+    val openTelemetry: OpenTelemetry
 
     /**
       * Enable transactions support on the client. The broker must be configured accordingly:
@@ -96,6 +99,11 @@ object Pulsar {
       */
     def withOperationTimeout(timeout: FiniteDuration): Settings =
       withOperationTimeout(OperationTimeout(timeout))
+
+    /**
+      * Set the OpenTelemetry settings <i>(default: OpenTelemetry.noop())</i>.
+      */
+    def withOpenTelemetry(opel: OpenTelemetry): Settings
   }
 
   object Settings {
@@ -105,7 +113,8 @@ object Pulsar {
     private case class SettingsImpl(
         connectionTimeout: ConnectionTimeout,
         operationTimeout: OperationTimeout,
-        txEnabled: Boolean
+        txEnabled: Boolean,
+        openTelemetry: OpenTelemetry
     ) extends Settings {
       override def withTransactions: Settings =
         copy(txEnabled = true)
@@ -115,12 +124,16 @@ object Pulsar {
 
       override def withOperationTimeout(timeout: OperationTimeout): Settings =
         copy(operationTimeout = timeout)
+
+      override def withOpenTelemetry(opel: OpenTelemetry): Settings =
+        copy(openTelemetry = opel)
     }
 
     def apply(): Settings = SettingsImpl(
       ConnectionTimeout(30.seconds),
       OperationTimeout(30.seconds),
-      txEnabled = false
+      txEnabled = false,
+      openTelemetry = OpenTelemetry.noop()
     )
   }
 }
