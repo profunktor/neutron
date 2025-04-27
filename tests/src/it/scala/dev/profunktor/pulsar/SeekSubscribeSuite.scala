@@ -94,7 +94,7 @@ object SeekSubscribeSuite extends IOSuite {
                 Stream
                   .eval(offset.get)
                   .flatMap { lastId =>
-                    Stream.eval(latch.get) ++
+                    Stream.eval(latch.get).drain ++
                       c2.subscribe(lastId).evalMap { msg =>
                         c2.ack(msg.id) *> ref2.update(_ :+ msg.payload) *>
                           switch.complete(().asRight).whenA(msg.payload == "z")
