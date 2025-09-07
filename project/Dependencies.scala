@@ -10,7 +10,7 @@ object Dependencies {
     val circe      = "0.14.13"
     val fs2        = "3.12.0"
     val pulsar     = "3.3.6"
-    val weaver     = "0.8.4"
+    val weaver     = "0.10.1"
 
     val kindProjector   = "0.13.3"
     val organizeImports = "0.5.0"
@@ -32,8 +32,8 @@ object Dependencies {
     val pulsarFunctionsApi = "org.apache.pulsar" % "pulsar-functions-api" % V.pulsar
 
     // Testing
-    val weaverCats       = "com.disneystreaming" %% "weaver-cats"       % V.weaver
-    val weaverScalaCheck = "com.disneystreaming" %% "weaver-scalacheck" % V.weaver
+    val weaverCats       = "org.typelevel" %% "weaver-cats"       % V.weaver
+    val weaverScalaCheck = "org.typelevel" %% "weaver-scalacheck" % V.weaver
 
     // Scalafix rules
     val organizeImports = "com.github.liancheng" %% "organize-imports" % V.organizeImports
